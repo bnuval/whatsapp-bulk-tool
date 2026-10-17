@@ -24,7 +24,7 @@ app.listen(PORT, () => {
 
 let client;
 try {
-    console.log('Initializing WhatsApp Client with bundled Puppeteer...');
+    console.log('Initializing WhatsApp Client...');
     client = new Client({
         authStrategy: new LocalAuth(),
         puppeteer: {
@@ -57,33 +57,14 @@ try {
         qrCodeData = null;
         pairingCode = null;
         userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
-
-        try {
-            if (client && client.pupPage) {
-                await client.pupPage.evaluate(() => {
-                    if (window.WWebJS && window.WWebJS.processMediaData) {
-                        const orig = window.WWebJS.processMediaData;
-                        window.WWebJS.processMediaData = async (...args) => {
-                            const m = await orig.apply(window.WWebJS, args);
-                            if (m && typeof m === 'object') {
-                                const c = {};
-                                for (const k of Object.keys(m)) {
-                                    if (k !== '__x_id' && k !== 'id') c[k] = m[k];
-                                }
-                                return c;
-                            }
-                            return m;
-                        };
-                    }
-                });
-            }
-        } catch (err) {}
     });
 
     client.on('authenticated', () => {
         console.log('>>> WhatsApp Authenticated successfully! <<<\n');
         isReady = true;
-        userNumber = client.info && client.info.wid ? client.info.wid.user : 'Authenticated';
+        if (client.info && client.info.wid) {
+            userNumber = client.info.wid.user;
+        }
     });
 
     client.on('disconnected', (reason) => {
@@ -108,14 +89,14 @@ try {
     isBrowserLoaded = true;
 }
 
-// Live Status endpoint that also verifies client info if ready
+// Robust status endpoint checking client info and internal flags
 app.get('/api/status', (req, res) => {
-    // Double check state from client instance if available
     if (client && client.info && client.info.wid) {
         isReady = true;
         userNumber = client.info.wid.user;
     }
-
+    
+    // Fallback state check via WWebJS evaluation if connected
     res.json({
         ready: isReady,
         qr: qrCodeData,
@@ -182,6 +163,7 @@ app.post('/api/send', async (req, res) => {
 
         return res.json({ success: true });
     } catch (err) {
+        console.error('[SEND ERROR]:', err);
         return res.status(500).json({ success: false, error: err.message || 'Internal send error' });
     }
 });

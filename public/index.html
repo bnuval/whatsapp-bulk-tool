@@ -3,46 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Bulk Sender & Dispatcher</title>
+    <title>WhatsApp Bulk Pro - Enterprise Dispatcher</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- SheetJS for Excel/CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; }
-        .card { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .log-box { background: #1e1e1e; color: #00ff00; font-family: monospace; font-size: 0.85rem; height: 250px; overflow-y: auto; border-radius: 8px; padding: 12px; }
+        body { background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .log-box { background: #121212; color: #00ff66; font-family: "Courier New", Courier, monospace; font-size: 0.85rem; height: 220px; overflow-y: auto; border-radius: 8px; padding: 14px; }
+        .btn-success { background-color: #00a884; border-color: #00a884; }
+        .btn-success:hover { background-color: #008f72; border-color: #008f72; }
     </style>
 </head>
 <body>
-    <div class="container py-4">
+    <div class="container py-5">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="card p-4 bg-white mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                        <h2 class="fw-bold text-success m-0">?? WhatsApp Bulk Dispatcher Pro</h2>
-                        <div class="d-flex align-items-center gap-2">
+                        <div>
+                            <h3 class="fw-bold text-dark m-0">WhatsApp Bulk Dispatcher Pro</h3>
+                            <small class="text-muted">Enterprise Cloud Messaging Solution</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
                             <span id="connection-status" class="badge bg-secondary px-3 py-2 fs-6">Checking...</span>
-                            <button onclick="checkConnectionOnly()" class="btn btn-outline-secondary btn-sm fw-bold">?? Check Connection</button>
+                            <button onclick="checkConnectionOnly()" class="btn btn-outline-primary btn-sm fw-bold px-3">
+                                ?? Check Connection
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Connection & Pairing / QR Section -->
+                    <!-- Connection & Pairing Section -->
                     <div class="row mb-4">
                         <div class="col-md-6 mb-3 mb-md-0">
                             <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-center">
-                                <h5 class="fw-bold mb-3">Option 1: Connect via Phone Pairing Code</h5>
+                                <h6 class="fw-bold mb-2">Connect via Phone Pairing Code</h6>
                                 <div class="input-group mb-2">
-                                    <input type="text" id="pairing-number" class="form-control" placeholder="919876543210 (with country code)">
+                                    <input type="text" id="pairing-number" class="form-control" placeholder="919876543210">
                                     <button onclick="requestPairingCode()" class="btn btn-primary">Get Code</button>
                                 </div>
-                                <div id="pairing-code-display" class="fw-bold text-danger fs-4 mt-2"></div>
+                                <div id="pairing-code-display" class="fw-bold text-danger fs-5 mt-1"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="p-3 bg-light rounded border h-100 text-center">
-                                <h5 class="fw-bold mb-2">Connection Status & User</h5>
-                                <div id="status-info" class="text-muted fw-semibold">Waiting for backend initialization...</div>
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-center">
+                                <h6 class="fw-bold mb-1">Session Status</h6>
+                                <div id="status-info" class="text-muted fw-semibold">Synchronizing with cloud server...</div>
                             </div>
                         </div>
                     </div>
@@ -51,7 +58,7 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">1. Upload Excel / CSV (or enter numbers manually)</label>
                         <input type="file" id="excel-file" class="form-control" accept=".xlsx, .xls, .csv" onchange="handleFileUpload(event)">
-                        <small class="text-muted">Excel sheet should have a column named 'Phone' or 'Mobile'.</small>
+                        <small class="text-muted">Excel sheet must contain a column named 'Phone' or 'Mobile'.</small>
                     </div>
 
                     <div class="mb-3">
@@ -61,12 +68,14 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">3. Message / Caption</label>
-                        <textarea id="message-text" rows="3" class="form-control" placeholder="Type your message here..."></textarea>
+                        <textarea id="message-text" rows="3" class="form-control" placeholder="Type your broadcast message here..."></textarea>
                     </div>
 
+                    <!-- Restored File Upload Option -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">4. Attach File / Image / Document (Optional)</label>
                         <input type="file" id="media-file" class="form-control">
+                        <small class="text-muted">Supports images, videos, PDFs, Excel sheets, and documents.</small>
                     </div>
 
                     <div class="row mb-4">
@@ -83,16 +92,14 @@
 
                 <!-- Live Logs Terminal -->
                 <div class="card p-3 bg-white">
-                    <h5 class="fw-bold mb-2">Live Activity Logs</h5>
-                    <div id="log-box" class="log-box">System initialized. Ready to check connection...<br></div>
+                    <h6 class="fw-bold mb-2 text-dark">Live Activity Logs</h6>
+                    <div id="log-box" class="log-box">System initialized. Ready...<br></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let parsedNumbers = [];
-
         function log(text) {
             const box = document.getElementById('log-box');
             box.innerHTML += `[${new Date().toLocaleTimeString()}] ${text}<br>`;
@@ -116,7 +123,7 @@
                 } else {
                     badge.className = 'badge bg-danger px-3 py-2 fs-6';
                     badge.innerText = 'Disconnected ?';
-                    statusInfo.innerHTML = `<span class="text-danger">WhatsApp not connected. Use pairing code or check cloud logs.</span>`;
+                    statusInfo.innerHTML = `<span class="text-danger">WhatsApp not connected. Use pairing code above.</span>`;
                 }
             } catch (err) {
                 badge.className = 'badge bg-dark px-3 py-2 fs-6';
@@ -140,7 +147,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    document.getElementById('pairing-code-display').innerText = `Your Code: ${data.code}`;
+                    document.getElementById('pairing-code-display').innerText = `Code: ${data.code}`;
                     log('Pairing code generated successfully: ' + data.code);
                 } else {
                     alert('Error: ' + data.error);
@@ -169,7 +176,7 @@
                 });
 
                 document.getElementById('phone-list').value = nums.join(', ');
-                log(`Loaded ${nums.length} numbers from Excel file.`);
+                log(`Successfully loaded ${nums.length} numbers from Excel file.`);
             };
             reader.readAsArrayBuffer(file);
         }
@@ -196,9 +203,10 @@
                 fileName = file.name;
                 fileMime = file.type;
                 fileBase64 = await toBase64(file);
+                log(`Attached file: ${fileName}`);
             }
 
-            log(`Starting dispatch to ${phones.length} numbers...`);
+            log(`Starting bulk dispatch to ${phones.length} numbers...`);
 
             for (let i = 0; i < phones.length; i++) {
                 const phone = phones[i];
