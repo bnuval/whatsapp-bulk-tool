@@ -19,11 +19,14 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-extensions',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process'
         ]
     }
 });
@@ -153,7 +156,6 @@ app.post('/api/send', async (req, res) => {
     }
 });
 
-// Dynamic port for cloud hosting (Render / Railway / etc.)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\nServer running on port ${PORT}\n`);
