@@ -1,352 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>WhatsApp Direct Bulk Dispatcher</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bulk Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen py-8 px-4 font-sans">
-  <div class="max-w-5xl mx-auto space-y-6">
-    <header class="flex justify-between items-center bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
-      <div>
-        <h1 class="text-2xl font-bold flex items-center gap-3 text-emerald-400">
-          <i class="fa-brands fa-whatsapp text-3xl"></i> WhatsApp Bulk Pro
-        </h1>
-        <p class="text-slate-400 text-sm mt-1">Direct Excel dispatcher with universal attachments & custom delay</p>
-      </div>
-      <div class="flex items-center gap-3 px-4 py-2 bg-slate-700/60 rounded-xl border border-slate-600">
-        <span class="w-3 h-3 rounded-full bg-amber-400 animate-pulse" id="statusDot"></span>
-        <span class="text-sm font-semibold" id="statusText">Checking WhatsApp...</span>
-      </div>
-    </header>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- Step 1: Authentication -->
-      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col space-y-4">
-        <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs flex items-center justify-center font-bold">1</span>
-          Login with Phone / QR
-        </h2>
-        
-        <div id="authSection" class="space-y-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Your Sender Mobile Number</label>
-            <div class="flex gap-2">
-              <input type="text" id="senderPhone" placeholder="e.g. 919876543210" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500" />
-              <button onclick="requestPairingCode()" class="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs whitespace-nowrap">
-                Get Code
-              </button>
+<body class="bg-gray-100 min-h-screen p-6">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h1 class="text-2xl font-bold text-gray-800">WhatsApp Bulk Dispatcher</h1>
+            <div class="flex items-center space-x-3">
+                <span id="connection-status" class="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">Checking...</span>
+                <button onclick="checkConnection()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium transition">
+                    ?? Check Connection
+                </button>
             </div>
-          </div>
-
-          <div id="pairingCodeDisplay" class="hidden p-3 bg-slate-950 border border-emerald-500/40 rounded-xl text-center">
-            <p class="text-[11px] text-slate-400">Enter this code on your phone:</p>
-            <div id="codeText" class="text-2xl font-mono font-bold tracking-widest text-emerald-400 select-all my-1"></div>
-            <p class="text-[10px] text-slate-500">Linked Devices > Link with phone number</p>
-          </div>
-
-          <div class="pt-2 border-t border-slate-700 text-center">
-            <p class="text-[11px] text-slate-400 mb-2">Or scan QR code:</p>
-            <div id="qrContainer" class="p-2 bg-white rounded-xl inline-block min-w-[140px] min-h-[140px]">
-              <span class="text-slate-500 text-[10px]">Loading QR...</span>
-            </div>
-          </div>
         </div>
 
-        <div id="userBadge" class="hidden p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm font-semibold text-center">
-          <i class="fa-solid fa-circle-check"></i> Connected as:<br><span id="userNumberDisplay" class="font-mono text-base text-white"></span>
-        </div>
-      </div>
-
-      <!-- Step 2: Upload, Any File & Pacing Slider -->
-      <div class="md:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
-        <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs flex items-center justify-center font-bold">2</span>
-          Upload & Message
-        </h2>
-        
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Upload Excel File (.xlsx, .xls, .csv)</label>
-          <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="w-full text-xs text-slate-300 bg-slate-900 rounded-xl p-2 border border-slate-700" />
-          <p id="contactCount" class="text-xs text-emerald-400 mt-1"></p>
+        <div id="status-box" class="mb-6 p-4 bg-gray-50 rounded-lg border">
+            <p id="status-text" class="text-gray-700">Connecting to WhatsApp backend...</p>
         </div>
 
-        <!-- Unified Message Box with Any-File Support -->
-        <div class="border border-slate-700 rounded-2xl bg-slate-900 p-3 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-800">
-            <span class="text-xs font-semibold text-slate-400">Message & Attachment</span>
-            <label class="cursor-pointer text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition">
-              <i class="fa-solid fa-paperclip"></i> Attach File (Image, PDF, Video, Doc)
-              <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(this)" />
-            </label>
-          </div>
-
-          <!-- File Thumbnail / Info -->
-          <div id="filePreviewContainer" class="hidden p-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3">
-            <div id="fileIconBox" class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl text-emerald-400 shrink-0">
-              <i class="fa-solid fa-file"></i>
+        <!-- Messaging Form Placeholder -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Phone Number / Broadcast</label>
+                <input type="text" id="phone" placeholder="919876543210" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
             </div>
-            <div class="overflow-hidden">
-              <p id="previewFileName" class="text-xs font-medium text-slate-200 truncate"></p>
-              <p id="previewFileSize" class="text-[10px] text-slate-500"></p>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Message</label>
+                <textarea id="message" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="Type your message..."></textarea>
             </div>
-            <button onclick="removeFile()" class="ml-auto text-slate-400 hover:text-red-400 px-2 py-1 text-sm">
-              <i class="fa-solid fa-xmark"></i>
+            <button onclick="sendMessage()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">
+                Send Message
             </button>
-          </div>
-
-          <textarea id="messageText" rows="4" placeholder="Hello {name}, type your message or caption here..." class="w-full bg-transparent border-0 focus:ring-0 text-sm text-slate-100 resize-none outline-none"></textarea>
         </div>
-
-        <!-- Delay Slider (Min: 5s, Max: 30s) -->
-        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2">
-          <div class="flex justify-between items-center text-xs">
-            <span class="text-slate-400 font-semibold">Message Delay Interval:</span>
-            <span class="text-emerald-400 font-bold font-mono text-sm"><span id="delayDisplay">5</span> Seconds</span>
-          </div>
-          <input type="range" id="delaySlider" min="5" max="30" value="5" step="1" oninput="updateDelay(this.value)" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-          <div class="flex justify-between text-[10px] text-slate-500">
-            <span>5s (Minimum)</span>
-            <span>15s (Recommended)</span>
-            <span>30s (Maximum Anti-Ban)</span>
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button id="sendBtn" onclick="startBroadcast()" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl transition flex items-center gap-2">
-            <i class="fa-solid fa-paper-plane"></i> Start Sending
-          </button>
-        </div>
-
-        <!-- Progress and Countdown Status -->
-        <div id="progressArea" class="hidden space-y-2">
-          <div class="flex justify-between text-xs text-slate-400">
-            <span id="progressStatus">Sending...</span>
-            <span id="progressPercent">0%</span>
-          </div>
-          <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-700">
-            <div id="progressBar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
-          </div>
-          <p id="countdownStatus" class="text-xs text-amber-400 font-mono"></p>
-        </div>
-      </div>
     </div>
 
-    <!-- Live Execution Logs -->
-    <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
-      <h3 class="text-sm font-bold text-slate-300 mb-2">Logs</h3>
-      <div id="logContainer" class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-400 h-40 overflow-y-auto space-y-1">
-        <div>[System] Ready. Connect WhatsApp to begin.</div>
-      </div>
-    </div>
-  </div>
+    <script>
+        async function checkConnection() {
+            const statusBadge = document.getElementById('connection-status');
+            const statusText = document.getElementById('status-text');
+            statusBadge.innerText = 'Checking...';
+            statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800';
 
-  <script>
-    let contacts = [], currentQR = null, selectedFile = null;
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
 
-    function getSelectedDelay() {
-      const slider = document.getElementById('delaySlider');
-      return parseInt(slider.value, 10) || 5;
-    }
-
-    function updateDelay(val) {
-      document.getElementById('delayDisplay').textContent = val;
-    }
-
-    async function checkStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        const dot = document.getElementById('statusDot'), text = document.getElementById('statusText');
-        const authSection = document.getElementById('authSection'), userBadge = document.getElementById('userBadge');
-
-        if (data.ready) {
-          dot.className = "w-3 h-3 rounded-full bg-emerald-500";
-          text.textContent = "Connected";
-          authSection.classList.add('hidden');
-          userBadge.classList.remove('hidden');
-          document.getElementById('userNumberDisplay').textContent = data.user || 'Active';
-        } else {
-          dot.className = "w-3 h-3 rounded-full bg-amber-400 animate-pulse";
-          text.textContent = "Waiting for Login";
-          authSection.classList.remove('hidden');
-          userBadge.classList.add('hidden');
-
-          if (data.qr && currentQR !== data.qr) {
-            currentQR = data.qr;
-            const qrBox = document.getElementById('qrContainer');
-            qrBox.innerHTML = "";
-            new QRCode(qrBox, { text: data.qr, width: 140, height: 140 });
-          }
-        }
-      } catch (err) {}
-    }
-    setInterval(checkStatus, 3000);
-    checkStatus();
-
-    async function requestPairingCode() {
-      const phone = document.getElementById('senderPhone').value.trim();
-      if (!phone) return alert('Please enter your phone number with country code (e.g. 919876543210).');
-
-      addLog(`Requesting pairing code for ${phone}...`);
-      try {
-        const res = await fetch('/api/request-pairing-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumber: phone })
-        });
-        const data = await res.json();
-        if (data.code) {
-          document.getElementById('pairingCodeDisplay').classList.remove('hidden');
-          document.getElementById('codeText').textContent = data.code;
-          addLog(`Pairing code generated: ${data.code}`, 'text-emerald-400');
-        } else {
-          alert('Error: ' + (data.error || 'Failed to fetch code'));
-        }
-      } catch (e) {
-        alert('Server error: ' + e.message);
-      }
-    }
-
-    // Excel Parsing
-    document.getElementById('excelFile').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        contacts = rows.map(r => ({
-          phone: String(r.Phone || r.phone || r.Mobile || r.mobile || '').replace(/\D/g, ''),
-          name: r.Name || r.name || 'Friend'
-        })).filter(c => c.phone.length >= 10);
-        document.getElementById('contactCount').textContent = `Loaded ${contacts.length} contacts`;
-        addLog(`Loaded ${contacts.length} contacts from ${file.name}`);
-      };
-      reader.readAsArrayBuffer(file);
-    });
-
-    // File Selector (Images, PDFs, Videos, Docs, etc.)
-    function handleFileSelect(input) {
-      const file = input.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        selectedFile = {
-          base64: e.target.result,
-          mime: file.type || 'application/octet-stream',
-          name: file.name
-        };
-
-        const container = document.getElementById('filePreviewContainer');
-        const iconBox = document.getElementById('fileIconBox');
-        document.getElementById('previewFileName').textContent = file.name;
-        document.getElementById('previewFileSize').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-
-        if (file.type.startsWith('image/')) {
-          iconBox.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded" />`;
-        } else if (file.type.includes('pdf')) {
-          iconBox.innerHTML = `<i class="fa-solid fa-file-pdf text-red-400"></i>`;
-        } else if (file.type.startsWith('video/')) {
-          iconBox.innerHTML = `<i class="fa-solid fa-file-video text-blue-400"></i>`;
-        } else {
-          iconBox.innerHTML = `<i class="fa-solid fa-file-lines text-emerald-400"></i>`;
+                if (data.ready) {
+                    statusBadge.innerText = 'Connected ?';
+                    statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800';
+                    statusText.innerHTML = `Connected as: <b>${data.user || 'Active'}</b>`;
+                } else if (data.qr) {
+                    statusBadge.innerText = 'Scan QR / Pair ??';
+                    statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800';
+                    statusText.innerText = 'Session requires authentication. Scan QR or use pairing code.';
+                } else {
+                    statusBadge.innerText = 'Connecting... ?';
+                    statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800';
+                    statusText.innerText = data.error ? `Error: ${data.error}` : 'Browser is starting up in cloud. Please wait...';
+                }
+            } catch (err) {
+                statusBadge.innerText = 'Offline ?';
+                statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800';
+                statusText.innerText = 'Could not reach server status API.';
+            }
         }
 
-        container.classList.remove('hidden');
-        addLog(`Attached file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'text-blue-400');
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function removeFile() {
-      selectedFile = null;
-      document.getElementById('fileInput').value = '';
-      document.getElementById('filePreviewContainer').classList.add('hidden');
-      addLog(`File attachment removed.`);
-    }
-
-    function addLog(msg, color = 'text-slate-400') {
-      const c = document.getElementById('logContainer');
-      const d = document.createElement('div');
-      d.className = color;
-      d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      c.appendChild(d);
-      c.scrollTop = c.scrollHeight;
-    }
-
-    // Broadcast Engine with visual countdown timer
-    async function startBroadcast() {
-      if (!contacts.length) return alert('Please upload your Excel file first.');
-      const msg = document.getElementById('messageText').value;
-      if (!msg.trim() && !selectedFile) return alert('Please enter a message or attach a file.');
-
-      const delaySeconds = getSelectedDelay();
-      const sendBtn = document.getElementById('sendBtn');
-      sendBtn.disabled = true;
-      
-      const progressArea = document.getElementById('progressArea');
-      const progressStatus = document.getElementById('progressStatus');
-      const progressBar = document.getElementById('progressBar');
-      const progressPercent = document.getElementById('progressPercent');
-      const countdownStatus = document.getElementById('countdownStatus');
-
-      progressArea.classList.remove('hidden');
-      addLog(`Starting broadcast. Configured delay: ${delaySeconds} seconds.`, 'text-emerald-400 font-bold');
-
-      for (let i = 0; i < contacts.length; i++) {
-        const c = contacts[i];
-        countdownStatus.textContent = '';
-        progressStatus.textContent = `Sending to ${c.phone} (${i + 1}/${contacts.length})`;
-        
-        const percent = Math.round(((i + 1) / contacts.length) * 100);
-        progressBar.style.width = `${percent}%`;
-        progressPercent.textContent = `${percent}%`;
-
-        const payload = {
-          phone: c.phone,
-          message: msg.replace('{name}', c.name),
-          fileBase64: selectedFile ? selectedFile.base64 : null,
-          fileMime: selectedFile ? selectedFile.mime : null,
-          fileName: selectedFile ? selectedFile.name : null
-        };
-
-        try {
-          const res = await fetch('/api/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const out = await res.json();
-          if (out.success) {
-            const extra = selectedFile ? ` [with ${selectedFile.name}]` : '';
-            addLog(`? Delivered to ${c.phone}${extra}`, 'text-emerald-400');
-          } else {
-            addLog(`? Skipped ${c.phone}: ${out.error || 'Failed'}`, 'text-amber-400');
-          }
-        } catch (e) {
-          addLog(`? Error for ${c.phone}: ${e.message}`, 'text-red-400');
+        async function sendMessage() {
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('message').value;
+            const res = await fetch('/api/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, message })
+            });
+            const data = await res.json();
+            alert(data.success ? 'Message sent successfully!' : 'Error: ' + data.error);
         }
 
-        // Live Countdown Delay between messages
-        if (i < contacts.length - 1) {
-          for (let sec = delaySeconds; sec > 0; sec--) {
-            countdownStatus.textContent = `Waiting ${sec}s before next contact (pacing delay)...`;
-            await new Promise(r => setTimeout(r, 1000));
-          }
-        }
-      }
-
-      countdownStatus.textContent = '';
-      progressStatus.textContent = 'Completed!';
-      addLog('All messages and attachments sent successfully!', 'text-emerald-300 font-bold');
-      sendBtn.disabled = false;
-    }
-  </script>
+        // Check connection on load and every 10 seconds automatically
+        checkConnection();
+        setInterval(checkConnection, 10000);
+    </script>
 </body>
 </html>
