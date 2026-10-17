@@ -26,7 +26,9 @@ let client;
 try {
     console.log('Initializing WhatsApp Client...');
     client = new Client({
-        authStrategy: new LocalAuth(),
+        authStrategy: new LocalAuth({
+            dataPath: './whatsapp_sessions'
+        }),
         puppeteer: {
             headless: true,
             args: [
@@ -56,7 +58,9 @@ try {
         isReady = true;
         qrCodeData = null;
         pairingCode = null;
-        userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
+        if (client.info && client.info.wid) {
+            userNumber = client.info.wid.user;
+        }
     });
 
     client.on('authenticated', () => {
@@ -65,6 +69,11 @@ try {
         if (client.info && client.info.wid) {
             userNumber = client.info.wid.user;
         }
+    });
+
+    client.on('auth_failure', (msg) => {
+        console.error('Authentication failure:', msg);
+        clientError = 'Auth failure: ' + msg;
     });
 
     client.on('disconnected', (reason) => {
@@ -89,14 +98,13 @@ try {
     isBrowserLoaded = true;
 }
 
-// Robust status endpoint checking client info and internal flags
+// Status endpoint with explicit client info synchronization
 app.get('/api/status', (req, res) => {
     if (client && client.info && client.info.wid) {
         isReady = true;
         userNumber = client.info.wid.user;
     }
-    
-    // Fallback state check via WWebJS evaluation if connected
+
     res.json({
         ready: isReady,
         qr: qrCodeData,

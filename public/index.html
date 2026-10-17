@@ -29,7 +29,7 @@
                         <div class="d-flex align-items-center gap-3">
                             <span id="connection-status" class="badge bg-secondary px-3 py-2 fs-6">Checking...</span>
                             <button onclick="checkConnectionOnly()" class="btn btn-outline-primary btn-sm fw-bold px-3">
-                                ?? Check Connection
+                                Check Connection
                             </button>
                         </div>
                     </div>
@@ -71,7 +71,6 @@
                         <textarea id="message-text" rows="3" class="form-control" placeholder="Type your broadcast message here..."></textarea>
                     </div>
 
-                    <!-- Restored File Upload Option -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">4. Attach File / Image / Document (Optional)</label>
                         <input type="file" id="media-file" class="form-control">
@@ -118,16 +117,16 @@
 
                 if (data.ready) {
                     badge.className = 'badge bg-success px-3 py-2 fs-6';
-                    badge.innerText = 'Connected ?';
+                    badge.innerText = 'Connected';
                     statusInfo.innerHTML = `<span class="text-success fw-bold">Connected as: ${data.user || 'Active'}</span>`;
                 } else {
                     badge.className = 'badge bg-danger px-3 py-2 fs-6';
-                    badge.innerText = 'Disconnected ?';
-                    statusInfo.innerHTML = `<span class="text-danger">WhatsApp not connected. Use pairing code above.</span>`;
+                    badge.innerText = 'Disconnected';
+                    statusInfo.innerHTML = `<span class="text-danger">WhatsApp not connected. Use pairing code above or unlink/re-link device.</span>`;
                 }
             } catch (err) {
                 badge.className = 'badge bg-dark px-3 py-2 fs-6';
-                badge.innerText = 'Offline ?';
+                badge.innerText = 'Offline';
                 statusInfo.innerHTML = `<span class="text-danger">Could not reach backend API.</span>`;
             }
         }
@@ -220,12 +219,12 @@
                     });
                     const data = await res.json();
                     if (data.success) {
-                        log(`? Delivered to ${phone}`);
+                        log(`Delivered to ${phone}`);
                     } else {
-                        log(`? Failed ${phone}: ${data.error}`);
+                        log(`Failed ${phone}: ${data.error}`);
                     }
                 } catch (err) {
-                    log(`? Network error for ${phone}`);
+                    log(`Network error for ${phone}`);
                 }
 
                 if (i < phones.length - 1) {
@@ -234,7 +233,7 @@
                 }
             }
 
-            log('?? Bulk dispatch completed!');
+            log('Bulk dispatch completed!');
         }
 
         const toBase64 = file => new Promise((resolve, reject) => {
