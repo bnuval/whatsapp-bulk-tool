@@ -1,8 +1,9 @@
 FROM node:20-slim
 
-# Install Chromium and required Linux dependencies
+# Install all necessary Linux dependencies for Puppeteer's bundled browser
 RUN apt-get update && apt-get install -y \
-    chromium \
+    wget \
+    ca-certificates \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -39,8 +40,6 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 
 WORKDIR /app
@@ -51,6 +50,4 @@ RUN npm install
 COPY . .
 
 EXPOSE 3000
-
-# Run Node with strict memory limits to fit Render's 512MB free tier limit
 CMD ["node", "--max-old-space-size=384", "server.js"]

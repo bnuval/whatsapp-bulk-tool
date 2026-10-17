@@ -24,11 +24,11 @@ app.listen(PORT, () => {
 
 let client;
 try {
+    console.log('Initializing WhatsApp Client with bundled Puppeteer...');
     client = new Client({
         authStrategy: new LocalAuth(),
         puppeteer: {
             headless: true,
-            executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -94,18 +94,21 @@ try {
     });
 
     setTimeout(() => {
-        console.log('Initializing WhatsApp client...');
+        console.log('Starting client initialization...');
         client.initialize().then(() => {
             isBrowserLoaded = true;
+            console.log('Client initialization finished successfully.');
         }).catch(err => {
             clientError = err.message;
-            console.error('Client initialization failed:', err);
+            isBrowserLoaded = true;
+            console.error('CRITICAL Client initialization failed:', err);
         });
-    }, 4000);
+    }, 2000);
 
 } catch (err) {
     clientError = err.message;
-    console.error('Failed to create WhatsApp client:', err);
+    isBrowserLoaded = true;
+    console.error('Failed to create WhatsApp client object:', err);
 }
 
 app.get('/api/status', (req, res) => {
@@ -123,10 +126,13 @@ app.post('/api/request-pairing-code', async (req, res) => {
     if (!client) {
         return res.status(500).json({ success: false, error: 'WhatsApp client not initialized.' });
     }
+    if (clientError) {
+        return res.status(500).json({ success: false, error: `Initialization error: ${clientError}` });
+    }
     if (!client.pupPage) {
         return res.status(500).json({ 
             success: false, 
-            error: 'WhatsApp browser is still starting up in the cloud. Please wait 15-30 seconds after deployment and try again.' 
+            error: 'Browser is still launching. Please wait 15-20 seconds and try again.' 
         });
     }
 
@@ -136,7 +142,7 @@ app.post('/api/request-pairing-code', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Enter a valid phone number with country code.' });
         }
         if (typeof client.requestPairingCode !== 'function') {
-            return res.status(500).json({ success: false, error: 'Pairing code function not ready yet. Please wait a moment.' });
+            return res.status(500).json({ success: false, error: 'Pairing code function not ready yet.' });
         }
         const code = await client.requestPairingCode(rawNumber);
         pairingCode = code;
