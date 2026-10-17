@@ -14,130 +14,133 @@ let qrCodeData = null;
 let pairingCode = null;
 let isReady = false;
 let userNumber = null;
+let clientError = null;
 
-// Start Express server FIRST so Render gets an instant 200 OK response (prevents 502)
+// Start Express server instantly so Render receives a healthy 200 OK
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\nExpress Server running on port ${PORT}\n`);
 });
 
-// Initialize WhatsApp Client with strict low-RAM options for cloud containers
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: true,
-        executablePath: '/usr/bin/chromium',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu',
-            '--disable-software-rasterizer',
-            '--disable-extensions',
-            '--disable-features=IsolateOrigins,site-per-process'
-        ]
-    }
-});
+// Initialize WhatsApp Client safely with low-RAM flags
+let client;
+try {
+    client = new Client({
+        authStrategy: new LocalAuth(),
+        puppeteer: {
+            headless: true,
+            executablePath: '/usr/bin/chromium',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu',
+                '--disable-software-rasterizer',
+                '--disable-extensions'
+            ]
+        }
+    });
 
-client.on('qr', (qr) => {
-    console.log('\n--- QR CODE GENERATED ---');
-    qrcode.generate(qr, { small: true });
-    qrCodeData = qr;
-    isReady = false;
-});
+    client.on('qr', (qr) => {
+        console.log('\n--- QR CODE GENERATED ---');
+        try { qrcode.generate(qr, { small: true }); } catch (e) {}
+        qrCodeData = qr;
+        isReady = false;
+    });
 
-client.on('ready', async () => {
-    console.log('\n>>> WhatsApp Client is CONNECTED! <<<\n');
-    isReady = true;
-    qrCodeData = null;
-    pairingCode = null;
-    userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
+    client.on('ready', async () => {
+        console.log('\n>>> WhatsApp Client is CONNECTED! <<<\n');
+        isReady = true;
+        qrCodeData = null;
+        pairingCode = null;
+        userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
 
-    try {
-        await client.pupPage.evaluate(() => {
-            if (window.WWebJS) {
-                if (window.WWebJS.processMediaData) {
-                    const origProcessMediaData = window.WWebJS.processMediaData;
-                    window.WWebJS.processMediaData = async (...args) => {
-                        const mediaModel = await origProcessMediaData.apply(window.WWebJS, args);
-                        if (mediaModel && typeof mediaModel === 'object') {
-                            const cleanMedia = {};
-                            for (const key of Object.keys(mediaModel)) {
-                                if (key !== '__x_id' && key !== 'id') {
-                                    cleanMedia[key] = mediaModel[key];
+        try {
+            if (client.pupPage) {
+                await client.pupPage.evaluate(() => {
+                    if (window.WWebJS) {
+                        if (window.WWebJS.processMediaData) {
+                            const orig = window.WWebJS.processMediaData;
+                            window.WWebJS.processMediaData = async (...args) => {
+                                const m = await orig.apply(window.WWebJS, args);
+                                if (m && typeof m === 'object') {
+                                    const c = {};
+                                    for (const k of Object.keys(m)) {
+                                        if (k !== '__x_id' && k !== 'id') c[k] = m[k];
+                                    }
+                                    return c;
                                 }
-                            }
-                            return cleanMedia;
-                        }
-                        return mediaModel;
-                    };
-                }
-                if (window.WWebJS.getContactModel) {
-                    const origGetContactModel = window.WWebJS.getContactModel;
-                    window.WWebJS.getContactModel = (contact) => {
-                        if (!contact) return {};
-                        if (!contact.id && contact._serialized) {
-                            contact.id = { _serialized: contact._serialized, user: contact.user };
-                        }
-                        try {
-                            return origGetContactModel(contact);
-                        } catch (e) {
-                            return {
-                                id: contact.id || { _serialized: '' },
-                                isMe: false, isUser: true, isGroup: false, isWAContact: true, isMyContact: false
+                                return m;
                             };
                         }
-                    };
-                }
+                    }
+                });
             }
+        } catch (err) {}
+    });
+
+    client.on('disconnected', (reason) => {
+        console.log('Disconnected:', reason);
+        isReady = false;
+        qrCodeData = null;
+        try { client.initialize(); } catch (e) {}
+    });
+
+    setTimeout(() => {
+        client.initialize().catch(err => {
+            clientError = err.message;
+            console.error('Client initialization failed:', err);
         });
-        console.log('>>> Media & Document __x_id patch applied! <<<');
-    } catch (err) {
-        console.log('Patch error:', err.message);
-    }
-});
+    }, 3000);
 
-client.on('disconnected', (reason) => {
-    console.log('Disconnected:', reason);
-    isReady = false;
-    qrCodeData = null;
-    client.initialize();
-});
+} catch (err) {
+    clientError = err.message;
+    console.error('Failed to create WhatsApp client:', err);
+}
 
-// Initialize WhatsApp client safely
-setTimeout(() => {
-    client.initialize();
-}, 2000);
-
+// GUARANTEED JSON Status Endpoint (Never returns HTML)
 app.get('/api/status', (req, res) => {
-    res.json({ ready: isReady, qr: qrCodeData, pairingCode: pairingCode, user: userNumber });
+    res.json({
+        ready: isReady,
+        qr: qrCodeData,
+        pairingCode: pairingCode,
+        user: userNumber,
+        error: clientError
+    });
 });
 
+// GUARANTEED JSON Pairing Code Endpoint
 app.post('/api/request-pairing-code', async (req, res) => {
-    const rawNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
-    if (!rawNumber || rawNumber.length < 10) {
-        return res.status(400).json({ error: 'Enter a valid phone number with country code.' });
+    if (!client) {
+        return res.status(500).json({ success: false, error: 'WhatsApp client not initialized' });
     }
     try {
+        const rawNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
+        if (!rawNumber || rawNumber.length < 10) {
+            return res.status(400).json({ success: false, error: 'Enter a valid phone number with country code.' });
+        }
         const code = await client.requestPairingCode(rawNumber);
         pairingCode = code;
         return res.json({ success: true, code: code });
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// GUARANTEED JSON Send Endpoint
 app.post('/api/send', async (req, res) => {
-    if (!isReady) return res.status(400).json({ error: 'WhatsApp not connected' });
-
-    const { phone, message, fileBase64, fileMime, fileName } = req.body;
-    const cleanNumber = String(phone).replace(/\D/g, '');
+    if (!isReady || !client) {
+        return res.status(400).json({ success: false, error: 'WhatsApp not connected' });
+    }
 
     try {
+        const { phone, message, fileBase64, fileMime, fileName } = req.body;
+        const cleanNumber = String(phone).replace(/\D/g, '');
+
         const numberDetails = await client.getNumberId(cleanNumber);
         if (!numberDetails) {
             return res.json({ success: false, error: 'Number not registered on WhatsApp' });
@@ -158,15 +161,13 @@ app.post('/api/send', async (req, res) => {
             }
 
             await client.sendMessage(chatId, media, options);
-            console.log(`[DELIVERED FILE] -> ${cleanNumber} (${fileName})`);
         } else {
             await client.sendMessage(chatId, message || '', { sendSeen: false });
-            console.log(`[DELIVERED TEXT] -> ${cleanNumber}`);
         }
 
         return res.json({ success: true });
     } catch (err) {
-        console.error(`[ERROR] ${cleanNumber}:`, err.message);
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('[SEND ERROR]:', err);
+        return res.status(500).json({ success: false, error: err.message || 'Internal send error' });
     }
 });
