@@ -15,7 +15,6 @@ let pairingCode = null;
 let isReady = false;
 let userNumber = null;
 let clientError = null;
-let isBrowserLoaded = false;
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -47,13 +46,13 @@ try {
     });
 
     client.on('qr', (qr) => {
-        isBrowserLoaded = true;
+        console.log('\n--- QR CODE RECEIVED FROM WHATSAPP ---');
         qrCodeData = qr;
         isReady = false;
+        try { qrcode.generate(qr, { small: true }); } catch (e) {}
     });
 
-    client.on('ready', async () => {
-        isBrowserLoaded = true;
+    client.on('ready', () => {
         console.log('\n>>> WhatsApp Client is CONNECTED! <<<\n');
         isReady = true;
         qrCodeData = null;
@@ -66,6 +65,7 @@ try {
     client.on('authenticated', () => {
         console.log('>>> WhatsApp Authenticated successfully! <<<\n');
         isReady = true;
+        qrCodeData = null;
         if (client.info && client.info.wid) {
             userNumber = client.info.wid.user;
         }
@@ -80,49 +80,42 @@ try {
         console.log('Disconnected:', reason);
         isReady = false;
         qrCodeData = null;
-        isBrowserLoaded = false;
         try { client.initialize(); } catch (e) {}
     });
 
     setTimeout(() => {
-        client.initialize().then(() => {
-            isBrowserLoaded = true;
-        }).catch(err => {
+        client.initialize().catch(err => {
             clientError = err.message;
-            isBrowserLoaded = true;
+            console.error('Initialization error:', err);
         });
     }, 2000);
 
 } catch (err) {
     clientError = err.message;
-    isBrowserLoaded = true;
+    console.error('Client creation error:', err);
 }
 
-// Status endpoint with explicit client info synchronization
+// Status endpoint with deep client inspection
 app.get('/api/status', (req, res) => {
     if (client && client.info && client.info.wid) {
         isReady = true;
         userNumber = client.info.wid.user;
+        qrCodeData = null;
     }
 
     res.json({
         ready: isReady,
         qr: qrCodeData,
         pairingCode: pairingCode,
-        user: userNumber,
-        error: clientError,
-        browserLoaded: isBrowserLoaded
+        user: userNumber || 'Active',
+        error: clientError
     });
 });
 
 app.post('/api/request-pairing-code', async (req, res) => {
     if (!client) {
-        return res.status(500).json({ success: false, error: 'WhatsApp client not initialized.' });
+        return res.status(500).json({ success: false, error: 'Client not initialized.' });
     }
-    if (!client.pupPage) {
-        return res.status(500).json({ success: false, error: 'Browser is still launching. Please wait a moment.' });
-    }
-
     try {
         const rawNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
         if (!rawNumber || rawNumber.length < 10) {
