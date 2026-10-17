@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install Chromium and required dependencies for Puppeteer
+# Install Chromium and all necessary Linux dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -39,8 +39,11 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Prevent Puppeteer from downloading its own browser and point to system Chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Bypass missing D-Bus socket inside Docker container
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 
 WORKDIR /app
 
