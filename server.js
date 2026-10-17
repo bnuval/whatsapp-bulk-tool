@@ -16,13 +16,11 @@ let isReady = false;
 let userNumber = null;
 let clientError = null;
 
-// Start Express server instantly so Render receives a healthy 200 OK
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\nExpress Server running on port ${PORT}\n`);
 });
 
-// Initialize WhatsApp Client safely with low-RAM flags
 let client;
 try {
     client = new Client({
@@ -59,28 +57,30 @@ try {
         pairingCode = null;
         userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
 
+        // Safe guarded evaluate patch
         try {
-            if (client.pupPage) {
+            if (client && client.pupPage) {
                 await client.pupPage.evaluate(() => {
-                    if (window.WWebJS) {
-                        if (window.WWebJS.processMediaData) {
-                            const orig = window.WWebJS.processMediaData;
-                            window.WWebJS.processMediaData = async (...args) => {
-                                const m = await orig.apply(window.WWebJS, args);
-                                if (m && typeof m === 'object') {
-                                    const c = {};
-                                    for (const k of Object.keys(m)) {
-                                        if (k !== '__x_id' && k !== 'id') c[k] = m[k];
-                                    }
-                                    return c;
+                    if (window.WWebJS && window.WWebJS.processMediaData) {
+                        const orig = window.WWebJS.processMediaData;
+                        window.WWebJS.processMediaData = async (...args) => {
+                            const m = await orig.apply(window.WWebJS, args);
+                            if (m && typeof m === 'object') {
+                                const c = {};
+                                for (const k of Object.keys(m)) {
+                                    if (k !== '__x_id' && k !== 'id') c[k] = m[k];
                                 }
-                                return m;
-                            };
-                        }
+                                return c;
+                            }
+                            return m;
+                        };
                     }
                 });
+                console.log('>>> Media patch applied successfully <<<');
             }
-        } catch (err) {}
+        } catch (err) {
+            console.log('Note: PupPage evaluate skipped:', err.message);
+        }
     });
 
     client.on('disconnected', (reason) => {
@@ -102,7 +102,6 @@ try {
     console.error('Failed to create WhatsApp client:', err);
 }
 
-// GUARANTEED JSON Status Endpoint (Never returns HTML)
 app.get('/api/status', (req, res) => {
     res.json({
         ready: isReady,
@@ -113,7 +112,6 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// GUARANTEED JSON Pairing Code Endpoint
 app.post('/api/request-pairing-code', async (req, res) => {
     if (!client) {
         return res.status(500).json({ success: false, error: 'WhatsApp client not initialized' });
@@ -123,6 +121,9 @@ app.post('/api/request-pairing-code', async (req, res) => {
         if (!rawNumber || rawNumber.length < 10) {
             return res.status(400).json({ success: false, error: 'Enter a valid phone number with country code.' });
         }
+        if (typeof client.requestPairingCode !== 'function') {
+            return res.status(500).json({ success: false, error: 'Pairing code function not available yet. Please wait for client initialization.' });
+        }
         const code = await client.requestPairingCode(rawNumber);
         pairingCode = code;
         return res.json({ success: true, code: code });
@@ -131,7 +132,6 @@ app.post('/api/request-pairing-code', async (req, res) => {
     }
 });
 
-// GUARANTEED JSON Send Endpoint
 app.post('/api/send', async (req, res) => {
     if (!isReady || !client) {
         return res.status(400).json({ success: false, error: 'WhatsApp not connected' });
