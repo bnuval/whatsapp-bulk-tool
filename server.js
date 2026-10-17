@@ -23,7 +23,7 @@ app.listen(PORT, () => {
 
 let client;
 try {
-    console.log('Initializing WhatsApp Client...');
+    console.log('Initializing WhatsApp Client with Persistent LocalAuth...');
     client = new Client({
         authStrategy: new LocalAuth({
             dataPath: './whatsapp_sessions'
@@ -46,14 +46,14 @@ try {
     });
 
     client.on('qr', (qr) => {
-        console.log('\n--- QR CODE RECEIVED FROM WHATSAPP ---');
+        console.log('\n--- QR CODE GENERATED ---');
         qrCodeData = qr;
         isReady = false;
         try { qrcode.generate(qr, { small: true }); } catch (e) {}
     });
 
     client.on('ready', () => {
-        console.log('\n>>> WhatsApp Client is CONNECTED! <<<\n');
+        console.log('\n>>> WhatsApp Client is CONNECTED & READY! <<<\n');
         isReady = true;
         qrCodeData = null;
         pairingCode = null;
@@ -95,12 +95,28 @@ try {
     console.error('Client creation error:', err);
 }
 
-// Status endpoint with deep client inspection
-app.get('/api/status', (req, res) => {
-    if (client && client.info && client.info.wid) {
-        isReady = true;
-        userNumber = client.info.wid.user;
-        qrCodeData = null;
+// Deep Status Endpoint with Client Inspection
+app.get('/api/status', async (req, res) => {
+    // Check if client info is populated or session is active
+    if (client) {
+        if (client.info && client.info.wid) {
+            isReady = true;
+            userNumber = client.info.wid.user;
+            qrCodeData = null;
+        } else {
+            // Check state via browser evaluation if available
+            try {
+                if (client.pupPage && !client.pupPage.isClosed()) {
+                    const isLoggedIn = await client.pupPage.evaluate(() => {
+                        return !!document.querySelector('div[data-testid="chat-list"]');
+                    });
+                    if (isLoggedIn) {
+                        isReady = true;
+                        qrCodeData = null;
+                    }
+                }
+            } catch (e) {}
+        }
     }
 
     res.json({
