@@ -3,97 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Bulk Pro - Dispatcher</title>
-    <!-- Bootstrap CSS for clean layout -->
+    <title>WhatsApp Bulk Sender & Dispatcher</title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- SheetJS for Excel/CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .status-badge { font-size: 0.9rem; padding: 6px 12px; border-radius: 20px; font-weight: 600; }
+        body { background-color: #f8f9fa; }
+        .card { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .log-box { background: #1e1e1e; color: #00ff00; font-family: monospace; font-size: 0.85rem; height: 250px; overflow-y: auto; border-radius: 8px; padding: 12px; }
     </style>
 </head>
 <body>
-    <div class="container py-5">
+    <div class="container py-4">
         <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card p-4 bg-white">
+            <div class="col-lg-10">
+                <div class="card p-4 bg-white mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                        <h3 class="fw-bold text-dark m-0">?? WhatsApp Bulk Dispatcher</h3>
+                        <h2 class="fw-bold text-success m-0">?? WhatsApp Bulk Dispatcher Pro</h2>
                         <div class="d-flex align-items-center gap-2">
-                            <span id="connection-status" class="badge bg-warning text-dark status-badge">Checking...</span>
-                            <button onclick="checkConnection()" class="btn btn-outline-primary btn-sm fw-bold">
-                                ?? Check Connection
-                            </button>
+                            <span id="connection-status" class="badge bg-secondary px-3 py-2 fs-6">Checking...</span>
+                            <button onclick="checkConnectionOnly()" class="btn btn-outline-secondary btn-sm fw-bold">?? Check Connection</button>
                         </div>
                     </div>
 
-                    <!-- Connection & QR / Pairing Section -->
-                    <div id="auth-section" class="mb-4 text-center">
-                        <div id="qr-container" class="mb-3"></div>
-                        <p id="status-message" class="text-muted">Checking connection to WhatsApp backend...</p>
+                    <!-- Connection & Pairing / QR Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-center">
+                                <h5 class="fw-bold mb-3">Option 1: Connect via Phone Pairing Code</h5>
+                                <div class="input-group mb-2">
+                                    <input type="text" id="pairing-number" class="form-control" placeholder="919876543210 (with country code)">
+                                    <button onclick="requestPairingCode()" class="btn btn-primary">Get Code</button>
+                                </div>
+                                <div id="pairing-code-display" class="fw-bold text-danger fs-4 mt-2"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border h-100 text-center">
+                                <h5 class="fw-bold mb-2">Connection Status & User</h5>
+                                <div id="status-info" class="text-muted fw-semibold">Waiting for backend initialization...</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Bulk Messaging Form -->
+                    <!-- Messaging Form -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Phone Numbers (CSV / Excel or manual)</label>
-                        <textarea id="phone-list" rows="4" class="form-control" placeholder="Enter phone numbers separated by commas or new lines (e.g., 919876543210)"></textarea>
+                        <label class="form-label fw-bold">1. Upload Excel / CSV (or enter numbers manually)</label>
+                        <input type="file" id="excel-file" class="form-control" accept=".xlsx, .xls, .csv" onchange="handleFileUpload(event)">
+                        <small class="text-muted">Excel sheet should have a column named 'Phone' or 'Mobile'.</small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Message / Caption</label>
-                        <textarea id="message-text" rows="3" class="form-control" placeholder="Type your broadcast message..."></textarea>
+                        <label class="form-label fw-bold">2. Phone Numbers (Comma or Newline separated)</label>
+                        <textarea id="phone-list" rows="3" class="form-control" placeholder="919876543210, 919123456789"></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Attach File (Optional: Image, PDF, Excel)</label>
-                        <input type="file" id="file-input" class="form-control">
+                        <label class="form-label fw-bold">3. Message / Caption</label>
+                        <textarea id="message-text" rows="3" class="form-control" placeholder="Type your message here..."></textarea>
                     </div>
 
-                    <button onclick="startSending()" class="btn btn-success w-100 py-2 fw-bold fs-5">
-                        Start Sending Messages
-                    </button>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">4. Attach File / Image / Document (Optional)</label>
+                        <input type="file" id="media-file" class="form-control">
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Delay Between Messages (Seconds)</label>
+                            <input type="number" id="delay-sec" class="form-control" value="5" min="2">
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button onclick="startDispatch()" id="send-btn" class="btn btn-success flex-grow-1 py-2 fw-bold fs-5">Start Bulk Dispatch</button>
+                    </div>
+                </div>
+
+                <!-- Live Logs Terminal -->
+                <div class="card p-3 bg-white">
+                    <h5 class="fw-bold mb-2">Live Activity Logs</h5>
+                    <div id="log-box" class="log-box">System initialized. Ready to check connection...<br></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        async function checkConnection() {
+        let parsedNumbers = [];
+
+        function log(text) {
+            const box = document.getElementById('log-box');
+            box.innerHTML += `[${new Date().toLocaleTimeString()}] ${text}<br>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function checkConnectionOnly() {
             const badge = document.getElementById('connection-status');
-            const msg = document.getElementById('status-message');
-            
+            const statusInfo = document.getElementById('status-info');
+            badge.innerText = 'Checking...';
+            badge.className = 'badge bg-warning text-dark px-3 py-2 fs-6';
+
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
 
                 if (data.ready) {
-                    badge.className = 'badge bg-success status-badge';
+                    badge.className = 'badge bg-success px-3 py-2 fs-6';
                     badge.innerText = 'Connected ?';
-                    msg.innerHTML = `<span class="text-success fw-bold">Connected as: ${data.user || 'Active'}</span>`;
-                } else if (data.qr) {
-                    badge.className = 'badge bg-info text-dark status-badge';
-                    badge.innerText = 'Scan QR ??';
-                    msg.innerHTML = `<span class="text-info fw-bold">Scan QR code on your terminal/logs or pair via mobile number.</span>`;
+                    statusInfo.innerHTML = `<span class="text-success fw-bold">Connected as: ${data.user || 'Active'}</span>`;
                 } else {
-                    badge.className = 'badge bg-warning text-dark status-badge';
-                    badge.innerText = 'Connecting... ?';
-                    msg.innerHTML = `<span class="text-warning">Cloud browser is starting up. Please wait 15-30s...</span>`;
+                    badge.className = 'badge bg-danger px-3 py-2 fs-6';
+                    badge.innerText = 'Disconnected ?';
+                    statusInfo.innerHTML = `<span class="text-danger">WhatsApp not connected. Use pairing code or check cloud logs.</span>`;
                 }
             } catch (err) {
-                badge.className = 'badge bg-danger status-badge';
+                badge.className = 'badge bg-dark px-3 py-2 fs-6';
                 badge.innerText = 'Offline ?';
-                msg.innerHTML = `<span class="text-danger">Could not reach server.</span>`;
+                statusInfo.innerHTML = `<span class="text-danger">Could not reach backend API.</span>`;
             }
         }
 
-        async function startSending() {
-            const phones = document.getElementById('phone-list').value;
-            const message = document.getElementById('message-text').value;
-            alert('Bulk dispatch triggered for numbers!');
+        async function requestPairingCode() {
+            const phone = document.getElementById('pairing-number').value.trim();
+            if (!phone) {
+                alert('Please enter your phone number with country code.');
+                return;
+            }
+            log('Requesting pairing code for ' + phone + '...');
+            try {
+                const res = await fetch('/api/request-pairing-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: phone })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('pairing-code-display').innerText = `Your Code: ${data.code}`;
+                    log('Pairing code generated successfully: ' + data.code);
+                } else {
+                    alert('Error: ' + data.error);
+                    log('Pairing error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to request pairing code.');
+                log('Network error during pairing code request.');
+            }
         }
 
-        // Run check on load
-        checkConnection();
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+                
+                let nums = [];
+                rows.forEach(r => {
+                    const num = r.Phone || r.Mobile || r.phone || r.mobile || Object.values(r)[0];
+                    if (num) nums.push(String(num).replace(/\D/g, ''));
+                });
+
+                document.getElementById('phone-list').value = nums.join(', ');
+                log(`Loaded ${nums.length} numbers from Excel file.`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function startDispatch() {
+            const rawPhones = document.getElementById('phone-list').value;
+            const message = document.getElementById('message-text').value;
+            const delaySec = parseInt(document.getElementById('delay-sec').value) || 5;
+            const mediaInput = document.getElementById('media-file');
+
+            const phones = rawPhones.split(/[\n,]/).map(p => p.trim()).filter(p => p.length > 5);
+
+            if (phones.length === 0) {
+                alert('Please enter or upload at least one valid phone number.');
+                return;
+            }
+
+            let fileBase64 = null;
+            let fileMime = null;
+            let fileName = null;
+
+            if (mediaInput.files.length > 0) {
+                const file = mediaInput.files[0];
+                fileName = file.name;
+                fileMime = file.type;
+                fileBase64 = await toBase64(file);
+            }
+
+            log(`Starting dispatch to ${phones.length} numbers...`);
+
+            for (let i = 0; i < phones.length; i++) {
+                const phone = phones[i];
+                log(`Sending to ${phone} (${i + 1}/${phones.length})...`);
+
+                try {
+                    const res = await fetch('/api/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone, message, fileBase64, fileMime, fileName })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        log(`? Delivered to ${phone}`);
+                    } else {
+                        log(`? Failed ${phone}: ${data.error}`);
+                    }
+                } catch (err) {
+                    log(`? Network error for ${phone}`);
+                }
+
+                if (i < phones.length - 1) {
+                    log(`Waiting ${delaySec}s before next message...`);
+                    await new Promise(r => setTimeout(r, delaySec * 1000));
+                }
+            }
+
+            log('?? Bulk dispatch completed!');
+        }
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        // Run connection check on load
+        checkConnectionOnly();
     </script>
 </body>
 </html>
