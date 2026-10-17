@@ -15,6 +15,7 @@ let pairingCode = null;
 let isReady = false;
 let userNumber = null;
 let clientError = null;
+let isBrowserLoaded = false;
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -44,6 +45,7 @@ try {
     });
 
     client.on('qr', (qr) => {
+        isBrowserLoaded = true;
         console.log('\n--- QR CODE GENERATED ---');
         try { qrcode.generate(qr, { small: true }); } catch (e) {}
         qrCodeData = qr;
@@ -51,13 +53,13 @@ try {
     });
 
     client.on('ready', async () => {
+        isBrowserLoaded = true;
         console.log('\n>>> WhatsApp Client is CONNECTED! <<<\n');
         isReady = true;
         qrCodeData = null;
         pairingCode = null;
         userNumber = client.info && client.info.wid ? client.info.wid.user : 'Connected';
 
-        // Safe guarded evaluate patch
         try {
             if (client && client.pupPage) {
                 await client.pupPage.evaluate(() => {
@@ -87,15 +89,19 @@ try {
         console.log('Disconnected:', reason);
         isReady = false;
         qrCodeData = null;
+        isBrowserLoaded = false;
         try { client.initialize(); } catch (e) {}
     });
 
     setTimeout(() => {
-        client.initialize().catch(err => {
+        console.log('Initializing WhatsApp client...');
+        client.initialize().then(() => {
+            isBrowserLoaded = true;
+        }).catch(err => {
             clientError = err.message;
             console.error('Client initialization failed:', err);
         });
-    }, 3000);
+    }, 4000);
 
 } catch (err) {
     clientError = err.message;
@@ -108,27 +114,36 @@ app.get('/api/status', (req, res) => {
         qr: qrCodeData,
         pairingCode: pairingCode,
         user: userNumber,
-        error: clientError
+        error: clientError,
+        browserLoaded: isBrowserLoaded
     });
 });
 
 app.post('/api/request-pairing-code', async (req, res) => {
     if (!client) {
-        return res.status(500).json({ success: false, error: 'WhatsApp client not initialized' });
+        return res.status(500).json({ success: false, error: 'WhatsApp client not initialized.' });
     }
+    if (!client.pupPage) {
+        return res.status(500).json({ 
+            success: false, 
+            error: 'WhatsApp browser is still starting up in the cloud. Please wait 15-30 seconds after deployment and try again.' 
+        });
+    }
+
     try {
         const rawNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
         if (!rawNumber || rawNumber.length < 10) {
             return res.status(400).json({ success: false, error: 'Enter a valid phone number with country code.' });
         }
         if (typeof client.requestPairingCode !== 'function') {
-            return res.status(500).json({ success: false, error: 'Pairing code function not available yet. Please wait for client initialization.' });
+            return res.status(500).json({ success: false, error: 'Pairing code function not ready yet. Please wait a moment.' });
         }
         const code = await client.requestPairingCode(rawNumber);
         pairingCode = code;
         return res.json({ success: true, code: code });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('[PAIRING ERROR]:', err);
+        return res.status(500).json({ success: false, error: err.message || 'Failed to generate pairing code.' });
     }
 });
 
