@@ -15,6 +15,13 @@ let pairingCode = null;
 let isReady = false;
 let userNumber = null;
 
+// Start Express server FIRST so Render gets an instant 200 OK response (prevents 502)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`\nExpress Server running on port ${PORT}\n`);
+});
+
+// Initialize WhatsApp Client with strict low-RAM options for cloud containers
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -28,7 +35,10 @@ const client = new Client({
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-extensions',
+            '--disable-features=IsolateOrigins,site-per-process'
         ]
     }
 });
@@ -98,7 +108,10 @@ client.on('disconnected', (reason) => {
     client.initialize();
 });
 
-client.initialize();
+// Initialize WhatsApp client safely
+setTimeout(() => {
+    client.initialize();
+}, 2000);
 
 app.get('/api/status', (req, res) => {
     res.json({ ready: isReady, qr: qrCodeData, pairingCode: pairingCode, user: userNumber });
@@ -156,9 +169,4 @@ app.post('/api/send', async (req, res) => {
         console.error(`[ERROR] ${cleanNumber}:`, err.message);
         return res.status(500).json({ success: false, error: err.message });
     }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`\nServer running on port ${PORT}\n`);
 });

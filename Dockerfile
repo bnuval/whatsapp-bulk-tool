@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install Chromium and all necessary Linux dependencies for Puppeteer
+# Install Chromium and required Linux dependencies
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -39,10 +39,8 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Prevent Puppeteer from downloading its own browser and point to system Chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-# Bypass missing D-Bus socket inside Docker container
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 
 WORKDIR /app
@@ -53,4 +51,6 @@ RUN npm install
 COPY . .
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# Run Node with strict memory limits to fit Render's 512MB free tier limit
+CMD ["node", "--max-old-space-size=384", "server.js"]
