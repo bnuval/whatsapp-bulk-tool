@@ -19,14 +19,16 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        executablePath: '/usr/bin/chromium',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-extensions',
-            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
             '--no-zygote',
-            '--single-process'
+            '--single-process',
+            '--disable-gpu'
         ]
     }
 });
