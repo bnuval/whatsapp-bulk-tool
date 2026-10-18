@@ -12,7 +12,7 @@ const HOST = '0.0.0.0';
 const AUTH_DIR = path.resolve(process.env.WWEBJS_AUTH_PATH || path.join(__dirname, 'whatsapp_sessions'));
 const DASHBOARD_USER = process.env.DASHBOARD_USER || '';
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
-const MAX_MESSAGE_BYTES = process.env.MAX_MESSAGE_BYTES || '12mb';
+const MAX_MESSAGE_BYTES = process.env.MAX_MESSAGE_BYTES || '30mb';
 
 let client = null;
 let ready = false;
@@ -74,7 +74,9 @@ app.get('/api/status', (_req, res) => {
 function createClient() {
   return new Client({
     authStrategy: new LocalAuth({ clientId: 'whatsbulk', dataPath: AUTH_DIR }),
+    qrMaxRetries: 0,
     puppeteer: {
+      protocolTimeout: 180000,
       headless: true,
       args: [
         '--no-sandbox',
@@ -175,8 +177,84 @@ app.post('/api/request-pairing-code', async (req, res) => {
   }
 });
 
+// Validate a batch of phone numbers against WhatsApp. The client filters out
+// numbers that WhatsApp does not recognize. Keep batches limited to avoid overload.
+app.post('/api/validate-numbers', async (req, res) => {
+  if (!ready || !client) {
+    return res.status(409).json({ success: false, error: 'WhatsApp is not connected.' });
+  }
+
+  const input = Array.isArray(req.body?.phones) ? req.body.phones : [];
+  if (!input.length) {
+    return res.status(400).json({ success: false, error: 'Provide a list of phone numbers.' });
+  }
+  if (input.length > 500) {
+    return res.status(400).json({ success: false, error: 'Validate no more than 500 numbers per batch.' });
+  }
+
+  const results = [];
+  for (const item of input) {
+    const phone = String(item?.phone || '').replace(/\D/g, '');
+    const name = String(item?.name || 'there');
+    if (phone.length < 10 || phone.length > 15) {
+      results.push({ phone, name, valid: false, reason: 'Invalid phone format' });
+      continue;
+    }
+    try {
+      const details = await client.getNumberId(phone);
+      results.push({ phone, name, valid: Boolean(details), chatId: details?._serialized || null,
+        reason: details ? null : 'Not registered on WhatsApp' });
+    } catch (error) {
+      // A lookup exception is not proof that the number is invalid. WhatsApp Web
+      // can throw when its internal comms layer is not ready; stop the batch so
+      // the UI does not remove every contact because of a temporary outage.
+      const detail = String(error?.message || 'Unknown WhatsApp lookup error');
+      console.error(`Number validation stopped at ${phone}:`, detail);
+      ready = false;
+      lastError = `WhatsApp number validation failed: ${detail}`;
+      scheduleReconnect();
+      return res.status(503).json({
+        success: false,
+        error: `WhatsApp could not validate numbers right now (${detail}). No contacts were removed. Reconnect WhatsApp, wait for Connected/Ready status, and try again.`,
+        failedPhone: phone,
+        checkedBeforeFailure: results.length
+      });
+    }
+    // A small pause between lookups avoids hammering the WhatsApp Web client.
+    await new Promise(resolve => setTimeout(resolve, 750));
+  }
+
+  const validCount = results.filter(item => item.valid).length;
+  const invalidCount = results.length - validCount;
+
+  // Safety guard: if every lookup says "not registered", don't let a possibly
+  // broken WhatsApp Web lookup wipe the user's entire contact list. The UI only
+  // removes contacts when the server returns success:true.
+  if (results.length > 0 && validCount === 0) {
+    const detail = 'WhatsApp returned no registered numbers for this entire batch. This may be a WhatsApp Web lookup/connection problem, so the contacts were not removed.';
+    lastError = detail;
+    console.error('[validation] Refusing to mark the whole batch invalid:', detail);
+    return res.status(503).json({
+      success: false,
+      error: `${detail} Reconnect WhatsApp, wait for Ready status, and retry. If it repeats, update/check whatsapp-web.js compatibility.`,
+      total: results.length,
+      validCount: 0,
+      invalidCount,
+      contactsPreserved: true
+    });
+  }
+
+  return res.json({
+    success: true,
+    total: results.length,
+    validCount,
+    invalidCount,
+    results
+  });
+});
+
 app.post('/api/send', async (req, res) => {
-  if (!ready || !client) return res.status(409).json({ success: false, error: 'WhatsApp is not ready. Scan the QR code and wait for Connected status.' });
+  if (!ready || !client) return res.status(409).json({ success: false, error: 'WhatsApp is not ready. Wait until the dashboard reports Connected/Ready.' });
 
   const phone = String(req.body?.phone || '').replace(/\D/g, '');
   const message = String(req.body?.message || '');
@@ -187,21 +265,28 @@ app.post('/api/send', async (req, res) => {
   if (!message.trim() && !(fileBase64 && fileMime)) return res.status(400).json({ success: false, error: 'Message text or an attachment is required.' });
 
   try {
-    const numberDetails = await client.getNumberId(phone);
-    if (!numberDetails) return res.status(404).json({ success: false, error: 'This number is not registered on WhatsApp.' });
+    // Workaround for the failing preflight lookup: attempt the send directly.
+    // This does not pre-verify WhatsApp registration; send may still fail.
+    const chatId = `${phone}@c.us`;
     if (fileBase64 && fileMime) {
       const pureBase64 = String(fileBase64).replace(/^data:[^;]+;base64,/, '');
       const media = new MessageMedia(String(fileMime), pureBase64, String(fileName || 'attachment'));
       const options = { caption: message, sendSeen: false };
       if (!String(fileMime).startsWith('image/') && !String(fileMime).startsWith('video/')) options.sendMediaAsDocument = true;
-      await client.sendMessage(numberDetails._serialized, media, options);
+      await client.sendMessage(chatId, media, options);
     } else {
-      await client.sendMessage(numberDetails._serialized, message, { sendSeen: false });
+      await client.sendMessage(chatId, message, { sendSeen: false });
     }
     return res.json({ success: true });
   } catch (error) {
-    console.error('Message send failed:', error);
-    return res.status(500).json({ success: false, error: error?.message || 'Message could not be sent.' });
+    const detail = String(error?.message || 'Unknown send error');
+    console.error(`Message send failed for ${phone}:`, detail);
+    if (/sendIq called before startComms|startComms|disconnected|not connected/i.test(detail)) {
+      ready = false;
+      lastError = `WhatsApp communication failed during send: ${detail}`;
+      scheduleReconnect();
+    }
+    return res.status(500).json({ success: false, error: detail, deliveryUnknown: true });
   }
 });
 

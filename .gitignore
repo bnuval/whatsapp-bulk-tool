@@ -1,4 +1,9 @@
-node_modules
-.wwebjs_auth
-.wwebjs_cache
-uploads/*
+﻿node_modules/
+.env
+.env.*
+!.env.example
+whatsapp_sessions/
+whatsapp_sessions_backup_*/
+.wwebjs_auth/
+.wwebjs_cache/
+npm-debug.log*

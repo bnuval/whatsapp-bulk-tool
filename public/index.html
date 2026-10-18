@@ -1,288 +1,353 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WhatsBulk Pro - Enterprise WhatsApp Dispatcher</title>
-
-  <!-- Tailwind CSS CDN -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsBulk Pro | WhatsApp Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- SheetJS for Excel/CSV parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <!-- QRCode.js Library for bulletproof image-based QR rendering -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            wa: { darkbg: '#0b141a', card: '#111b21', surface: '#202c33' }
-          }
-        }
-      }
-    }
-  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    .wa-pattern {
-      background-color: #0b141a;
-      background-image: radial-gradient(#1e293b 1px, transparent 1px);
-      background-size: 18px 18px;
-    }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    body{background:#081116;color:#e5edf1}.panel{background:#101d24;border:1px solid #263740}.muted{color:#9aadb7}.field{background:#091319;border:1px solid #344650;color:#edf5f7}.btn{border-radius:.7rem;padding:.65rem 1rem;font-weight:700}.btn-green{background:#087f5b;color:white}.btn-green:hover{background:#099268}.btn-gray{background:#263740;color:#e5edf1}.btn:disabled{opacity:.45;cursor:not-allowed}#logConsole{white-space:pre-wrap;overflow-wrap:anywhere}.pill{border:1px solid #344650;border-radius:999px;padding:.2rem .6rem;font-size:.75rem}
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col justify-between">
-
-  <!-- TOP HEADER -->
-  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg">
-          <i class="fa-brands fa-whatsapp text-2xl"></i>
-        </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-extrabold text-lg text-white tracking-tight">WhatsBulk <span class="text-emerald-400">Pro</span></span>
-          </div>
-          <p class="text-[11px] text-slate-400">Enterprise Cloud Dispatcher</p>
-        </div>
-      </div>
-
-      <div class="flex items-center space-x-3">
-        <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-          <span id="headerConnectionDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-          <span id="headerConnectionText" class="text-xs font-semibold text-slate-300">Checking...</span>
-          <button onclick="checkConnection()" class="ml-2 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1">
-            <i class="fa-solid fa-rotate"></i>
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        <button onclick="toggleModal('sessionModal', true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5">
-          <i class="fa-solid fa-qrcode text-emerald-400"></i>
-          <span>Link Phone / QR</span>
-        </button>
-      </div>
+<body class="min-h-screen">
+  <header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap gap-3 items-center justify-between">
+      <div class="flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-emerald-600 flex items-center justify-center"><i class="fa-brands fa-whatsapp text-2xl"></i></div><div><h1 class="font-extrabold text-xl">WhatsBulk <span class="text-emerald-400">Pro</span></h1><p class="text-xs muted">WhatsApp Web session dashboard</p></div></div>
+      <div class="flex items-center gap-3"><span id="headerDot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span id="headerStatus" class="text-sm">Checking status…</span><button class="btn btn-gray text-sm" onclick="checkConnection()"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button><button class="btn btn-green text-sm" onclick="openSession()"><i class="fa-solid fa-qrcode mr-1"></i>Link phone</button></div>
     </div>
   </header>
 
-  <!-- NOTIFICATION TOAST -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center p-3.5 space-x-3 rounded-xl shadow-2xl border text-xs max-w-sm pointer-events-none">
-    <i id="toastIcon" class="fa-solid fa-circle-check text-base"></i>
-    <span id="toastMsg" class="font-medium">Notification</span>
-  </div>
+  <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+    <section class="panel rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div><div class="flex items-center gap-2"><h2 class="font-bold">Connection status</h2><span id="statusBadge" class="pill">Checking</span></div><p id="statusDescription" class="muted text-sm mt-1">Connecting to the server…</p><p id="serverError" class="text-sm text-rose-300 mt-2 hidden"></p></div>
+      <div class="flex gap-2"><a class="btn btn-gray text-sm" href="/api/health" target="_blank" rel="noreferrer">Health check</a><a class="btn btn-gray text-sm" href="/api/status" target="_blank" rel="noreferrer">Status JSON</a></div>
+    </section>
 
-  <!-- MAIN CONTENT -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6 w-full">
-    <!-- STATUS BANNER -->
-    <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950/20 to-slate-900 border border-emerald-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
-      <div class="flex items-start space-x-3.5">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg flex-shrink-0 mt-0.5">
-          <i class="fa-solid fa-shield-halved"></i>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section class="panel rounded-2xl p-5 space-y-4">
+        <div><h2 class="text-lg font-bold">1. Upload contacts</h2><p class="muted text-sm mt-1">Choose an Excel or CSV file. The first sheet should have <code>Phone</code> and <code>Name</code> columns.</p></div>
+        <label for="excelFileInput" class="block border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-xl p-7 text-center cursor-pointer"><i class="fa-solid fa-file-excel text-3xl text-emerald-400"></i><p class="font-semibold mt-3">Choose Excel / CSV file</p><p class="muted text-xs mt-1">.xlsx, .xls, .csv</p><input id="excelFileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden"></label>
+        <div class="flex flex-wrap items-center justify-between gap-3"><span id="excelStatus" class="muted text-sm">No file selected</span><div class="flex gap-2"><button id="validateBtn" class="btn btn-green text-sm" type="button" onclick="validateContacts()" disabled>Validate WhatsApp numbers</button><button id="clearContactsBtn" class="btn btn-gray text-sm" type="button">Clear</button></div></div><p id="validationSummary" class="muted text-sm"></p>
+        <div id="previewWrap" class="hidden"><p class="text-sm font-semibold mb-2">Contact preview <span id="contactCount" class="muted font-normal"></span></p><div class="overflow-auto max-h-48 rounded-lg border border-slate-700"><table class="w-full text-sm"><thead class="bg-slate-900 sticky top-0"><tr><th class="text-left p-2">#</th><th class="text-left p-2">Name</th><th class="text-left p-2">Phone</th></tr></thead><tbody id="contactPreview"></tbody></table></div></div>
+      </section>
+
+      <section class="panel rounded-2xl p-5 space-y-4">
+        <div><h2 class="text-lg font-bold">2. Compose message</h2><p class="muted text-sm mt-1">Use <code>{name}</code> to insert the contact name.</p></div>
+        <textarea id="messageInput" rows="7" class="field w-full rounded-xl p-3 text-sm" placeholder="Hello {name}, your message here.">Hello {name},
+
+This is a message from our team.</textarea>
+        <div class="space-y-2">
+          <label for="attachmentInput" class="block text-sm font-semibold">Attach document or file (optional)</label>
+          <input id="attachmentInput" type="file" class="field w-full rounded-xl p-3 text-sm" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.mp4,.zip,.ppt,.pptx">
+          <p id="attachmentStatus" class="muted text-xs">No attachment selected. Documents are sent with the message as a file attachment.</p>
+          <button id="removeAttachmentBtn" class="btn btn-gray text-xs" type="button">Remove attachment</button>
         </div>
-        <div class="space-y-0.5">
-          <div class="flex items-center space-x-2">
-            <h2 class="text-sm font-bold text-white">WhatsApp Cloud Session Manager</h2>
-            <span id="bannerStatusBadge" class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold">Checking...</span>
-          </div>
-          <p id="bannerStatusDesc" class="text-xs text-slate-300 leading-relaxed">
-            Synchronizing connection state with cloud backend. Open the link console if pairing is required.
-          </p>
-        </div>
-      </div>
-      <button onclick="toggleModal('sessionModal', true)" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition flex items-center space-x-1.5 flex-shrink-0">
-        <i class="fa-solid fa-qrcode"></i>
-        <span>Open Link Console</span>
-      </button>
+        <label class="flex gap-3 items-start text-sm"><input id="consentCheck" type="checkbox" class="mt-1 accent-emerald-500"><span>I confirm these contacts have agreed to receive messages from me, and I will respect opt-outs.</span></label>
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3 space-y-2"><p class="font-semibold text-sm">Dispatch settings</p><label for="delaySeconds" class="text-sm">Lag between messages</label><select id="delaySeconds" class="field rounded-lg p-2 w-full"><option value="5" selected>5 seconds (default)</option><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option><option value="25">25 seconds</option><option value="30">30 seconds (maximum)</option></select><p class="muted text-xs">Allowed range: 5–30 seconds. A delay does not guarantee that WhatsApp will not restrict messaging.</p></div>
+        <div class="grid grid-cols-2 gap-3"><button id="startBtn" class="btn btn-green" onclick="startDispatchQueue()" disabled><i class="fa-solid fa-paper-plane mr-1"></i>Start dispatch</button><button id="stopBtn" class="btn btn-gray" onclick="stopDispatchQueue()" disabled><i class="fa-solid fa-stop mr-1"></i>Stop queue</button></div>
+        <div class="h-2 rounded-full bg-slate-800 overflow-hidden"><div id="progressBar" class="h-full bg-emerald-500" style="width:0%"></div></div><p id="progressText" class="muted text-xs">0 of 0 processed</p>
+      </section>
     </div>
 
-    <!-- WORKGRID -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-7 space-y-6">
-        <!-- UPLOAD SECTION -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-base text-white">1. Upload Contacts (Excel / CSV)</h3>
-            <span id="excelStatusBadge" class="text-xs text-slate-400">No file loaded</span>
-          </div>
-          <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-emerald-500/70 rounded-xl p-6 text-center cursor-pointer transition bg-slate-950/60">
-            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
-            <p class="text-sm font-semibold text-slate-200">Click to browse or drag & drop Excel file here</p>
-          </div>
-        </div>
-
-        <!-- COMPOSER -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <h3 class="font-bold text-base text-white">2. Compose Message</h3>
-          <textarea id="messageInput" rows="5" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500 resize-none">Hello *{name}*, 
-
-This is a test message from WhatsBulk Pro.</textarea>
-          <button onclick="startDispatchQueue()" class="w-full py-3 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition">
-            Launch Cloud Dispatch Queue
-          </button>
-        </div>
-      </div>
-
-      <!-- QUEUE MONITOR -->
-      <div class="lg:col-span-5 space-y-6">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
-          <h3 class="font-bold text-sm text-white uppercase tracking-wider">Live Queue Feed</h3>
-          <div id="logConsole" class="h-64 bg-slate-950 rounded-xl p-2.5 font-mono text-[11px] text-slate-400 overflow-y-auto border border-slate-800 space-y-1">
-            <div class="text-slate-500">[System] Initialized connection polling...</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <section class="panel rounded-2xl p-5"><div class="flex items-center justify-between gap-3 mb-3"><h2 class="font-bold">Live queue feed</h2><button class="btn btn-gray text-xs" onclick="clearLogs()">Clear log</button></div><div id="logConsole" class="bg-slate-950 rounded-xl border border-slate-800 p-3 h-64 overflow-y-auto font-mono text-xs muted">[System] Dashboard loaded. Checking WhatsApp connection…</div></section>
+    <p class="muted text-xs leading-relaxed">Important: This tool uses the unofficial <code>whatsapp-web.js</code> browser automation library. WhatsApp may change its web client or restrict accounts that violate its terms. For business-critical messaging, use the official WhatsApp Business Platform / Cloud API.</p>
   </main>
 
-  <!-- SESSION MODAL (QR & PAIRING) -->
-  <div id="sessionModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
-      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-        <h3 class="font-bold text-white text-base">WhatsApp Session & Device Link</h3>
-        <button onclick="toggleModal('sessionModal', false)" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-      <div class="p-6 space-y-5 text-xs text-slate-300">
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <span class="text-slate-400 block text-[11px]">Status:</span>
-            <span id="modalStatusText" class="font-bold text-amber-400 text-sm">Checking...</span>
-          </div>
-          <button onclick="checkConnection()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold">Refresh</button>
-        </div>
-
-        <!-- QR Box -->
-        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-center space-y-3">
-          <h4 class="font-bold text-white text-sm">Scan QR Code</h4>
-          <div id="qrCodeContainer" class="flex justify-center items-center bg-white p-3 rounded-xl mx-auto w-52 h-52 border">
-            <span class="text-slate-600 text-xs">Waiting for QR data...</span>
-          </div>
-          <p class="text-[11px] text-slate-400">Open WhatsApp &rarr; Linked Devices &rarr; Link a Device &rarr; Scan QR</p>
-        </div>
-
-        <!-- Pairing Code Box -->
-        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
-          <h4 class="font-bold text-white text-sm">Connect via Phone Pairing Code</h4>
-          <div class="flex space-x-2">
-            <input type="text" id="pairingPhoneInput" placeholder="919876543210" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-500">
-            <button onclick="requestPairingCode()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold">Get Code</button>
-          </div>
-          <div id="pairingCodeOutput" class="hidden text-center p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 font-mono text-lg font-bold text-emerald-300"></div>
-        </div>
+  <div id="sessionModal" class="hidden fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="sessionTitle">
+    <div class="panel rounded-2xl w-full max-w-lg overflow-y-auto max-h-[95vh]">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center"><h2 id="sessionTitle" class="font-bold">Link WhatsApp device</h2><button onclick="closeSession()" class="text-xl muted" aria-label="Close">&times;</button></div>
+      <div class="p-5 space-y-5">
+        <div class="text-center"><h3 class="font-semibold">Scan QR code</h3><div id="qrCodeContainer" class="bg-white rounded-xl w-56 h-56 mx-auto my-3 flex items-center justify-center p-3"><span class="text-slate-700 text-sm">Waiting for QR…</span></div><p class="muted text-xs">WhatsApp → Linked devices → Link a device → Scan QR</p></div>
+        <div class="border-t border-slate-700 pt-4 space-y-3"><h3 class="font-semibold">Or request a pairing code</h3><p class="muted text-xs">Enter the WhatsApp phone number including country code, without a plus sign.</p><div class="flex gap-2"><input id="pairingPhoneInput" class="field rounded-lg p-2 flex-1 min-w-0" placeholder="919876543210" inputmode="numeric"><button id="pairingBtn" class="btn btn-green" onclick="requestPairingCode()">Get code</button></div><div id="pairingCodeOutput" class="hidden rounded-lg border border-emerald-700 bg-emerald-950 p-3 text-center font-mono text-xl"></div></div>
+        <p id="modalStatusText" class="muted text-sm text-center">Waiting for server status…</p>
       </div>
     </div>
   </div>
 
-  <script>
-    let lastQrString = '';
+<script>
+'use strict';
+let contacts = [];
+let dispatching = false;
+let stopRequested = false;
+let lastQrString = '';
+let processed = 0;
+let selectedAttachment = null;
+let validating = false;
 
-    window.addEventListener('DOMContentLoaded', () => {
-      checkConnection();
-      setInterval(checkConnection, 8000); // Poll connection every 8 seconds automatically
+const $ = (id) => document.getElementById(id);
+window.addEventListener('DOMContentLoaded', () => {
+  $('excelFileInput').addEventListener('change', handleExcelUpload);
+  $('clearContactsBtn').addEventListener('click', clearContacts);
+  $('attachmentInput').addEventListener('change', handleAttachmentChange);
+  $('removeAttachmentBtn').addEventListener('click', removeAttachment);
+  checkConnection();
+  setInterval(checkConnection, 5000);
+});
+
+function logConsole(message, type = 'info') {
+  const line = document.createElement('div');
+  const stamp = new Date().toLocaleTimeString();
+  line.textContent = `[${stamp}] ${message}`;
+  if (type === 'error') line.className = 'text-rose-300';
+  else if (type === 'success') line.className = 'text-emerald-300';
+  $('logConsole').appendChild(line);
+  $('logConsole').scrollTop = $('logConsole').scrollHeight;
+}
+function clearLogs() { $('logConsole').textContent = ''; }
+function openSession() { $('sessionModal').classList.remove('hidden'); checkConnection(); }
+function closeSession() { $('sessionModal').classList.add('hidden'); }
+
+async function checkConnection() {
+  try {
+    const response = await fetch('/api/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Status request failed (${response.status})`);
+    const data = await response.json();
+    $('serverError').classList.toggle('hidden', !data.error);
+    $('serverError').textContent = data.error ? `Server: ${data.error}` : '';
+    if (data.ready) {
+      setStatus('Connected', 'emerald');
+      $('headerStatus').textContent = `Connected${data.user ? ` (${data.user})` : ''}`;
+      $('statusDescription').textContent = 'WhatsApp is connected and ready to send messages.';
+      $('modalStatusText').textContent = `Connected${data.user ? ` as ${data.user}` : ''}. You can close this window.`;
+      if (lastQrString) { $('qrCodeContainer').innerHTML = '<span class="text-emerald-700 text-sm font-bold">Device connected</span>'; lastQrString = ''; }
+    } else if (data.qr) {
+      setStatus('Scan QR code', 'amber');
+      $('headerStatus').textContent = 'Scan QR code';
+      $('statusDescription').textContent = 'Open Link phone and scan the QR code using WhatsApp on your phone.';
+      $('modalStatusText').textContent = 'QR code available — scan it using WhatsApp Linked Devices.';
+      if (data.qr !== lastQrString) { lastQrString = data.qr; renderImageQR(data.qr); }
+    } else {
+      setStatus(data.error ? 'Needs attention' : 'Starting', data.error ? 'rose' : 'amber');
+      $('headerStatus').textContent = data.error ? 'Needs attention' : 'Starting…';
+      $('statusDescription').textContent = data.initializing ? 'Starting the WhatsApp browser process. This can take a minute.' : 'Waiting for WhatsApp Web to provide a QR code or restore the saved session.';
+      $('modalStatusText').textContent = data.error || 'WhatsApp browser is starting. QR code will appear here when ready.';
+    }
+  } catch (error) {
+    setStatus('Server offline', 'rose');
+    $('headerStatus').textContent = 'Server offline';
+    $('statusDescription').textContent = 'Could not contact the backend. Check deployment logs and refresh.';
+    $('modalStatusText').textContent = 'Cannot contact backend.';
+    $('serverError').textContent = error.message;
+    $('serverError').classList.remove('hidden');
+  }
+  updateStartButton();
+}
+function setStatus(text, color) {
+  const colors = { emerald: ['bg-emerald-400','border-emerald-700','text-emerald-300'], amber: ['bg-amber-400','border-amber-700','text-amber-300'], rose: ['bg-rose-400','border-rose-700','text-rose-300'] };
+  $('headerDot').className = `w-2.5 h-2.5 rounded-full ${colors[color][0]}`;
+  $('statusBadge').textContent = text;
+  $('statusBadge').className = `pill ${colors[color][1]} ${colors[color][2]}`;
+}
+function renderImageQR(value) {
+  const container = $('qrCodeContainer');
+  container.innerHTML = '';
+  if (typeof QRCode === 'undefined') { container.textContent = 'QR library failed to load. Check internet/CDN access.'; return; }
+  try { new QRCode(container, { text: value, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+  catch (error) { container.textContent = `Could not render QR: ${error.message}`; }
+}
+
+function normalizePhone(value) {
+  if (value === null || value === undefined) return '';
+  // Excel may store numbers as numbers; remove punctuation but retain all digits.
+  return String(value).trim().replace(/\D/g, '');
+}
+function findColumn(row, possibleNames) {
+  const keys = Object.keys(row);
+  const key = keys.find(k => possibleNames.includes(String(k).trim().toLowerCase()));
+  return key ? row[key] : '';
+}
+async function handleExcelUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', raw: false });
+    if (!workbook.SheetNames.length) throw new Error('The file contains no worksheet.');
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+    const parsed = rows.map((row) => ({
+      name: String(findColumn(row, ['name', 'contact name', 'first name']) || 'there').trim() || 'there',
+      phone: normalizePhone(findColumn(row, ['phone', 'phone number', 'mobile', 'mobile number', 'whatsapp', 'whatsapp number']))
+    })).filter(row => row.phone.length >= 10 && row.phone.length <= 15);
+    if (!parsed.length) throw new Error('No valid contacts found. Ensure columns are named Phone and Name and phone numbers include country codes.');
+    contacts = parsed;
+    $('excelStatus').textContent = file.name;
+    $('contactCount').textContent = `(${contacts.length} valid rows)`;
+    renderContacts();
+    logConsole(`Loaded ${contacts.length} valid contacts from ${file.name}.`, 'success');
+  } catch (error) {
+    contacts = [];
+    renderContacts();
+    $('excelStatus').textContent = 'Could not load file';
+    logConsole(error.message || 'File could not be parsed.', 'error');
+    alert(error.message || 'File could not be parsed.');
+  }
+  updateStartButton();
+}
+function renderContacts() {
+  const body = $('contactPreview');
+  body.replaceChildren();
+  contacts.slice(0, 100).forEach((contact, index) => {
+    const tr = document.createElement('tr');
+    [String(index + 1), contact.name, contact.phone].forEach(value => {
+      const td = document.createElement('td'); td.className = 'p-2 border-t border-slate-800'; td.textContent = value; tr.appendChild(td);
     });
+    body.appendChild(tr);
+  });
+  $('previewWrap').classList.toggle('hidden', contacts.length === 0);
+  $('contactCount').textContent = contacts.length ? `(${contacts.length} contacts${contacts.length > 100 ? ', showing first 100' : ''})` : '';
+  updateStartButton();
+}
+function clearContacts() {
+  if (dispatching) return;
+  contacts = []; $('excelFileInput').value = ''; $('excelStatus').textContent = 'No file selected'; $('validationSummary').textContent = ''; renderContacts(); updateStartButton();
+}
+async function validateContacts() {
+  if (validating || dispatching || !contacts.length) return;
+  const statusResponse = await fetch('/api/status', { cache: 'no-store' });
+  const status = await statusResponse.json();
+  if (!status.ready) { alert('Connect WhatsApp before validating numbers.'); openSession(); return; }
+  if (contacts.length > 500) {
+    alert('This validator supports up to 500 contacts per batch. Please split the spreadsheet into smaller batches.');
+    return;
+  }
+  validating = true;
+  $('validateBtn').disabled = true;
+  $('validationSummary').textContent = `Checking ${contacts.length} numbers with WhatsApp… Please keep this page open.`;
+  logConsole(`Starting WhatsApp validation for ${contacts.length} contacts.`);
+  try {
+    const response = await fetch('/api/validate-numbers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones: contacts.map(({name, phone}) => ({name, phone})) })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Validation failed.');
+    const valid = result.results.filter(item => item.valid);
+    const invalid = result.results.filter(item => !item.valid);
+    contacts = valid.map(item => ({ name: item.name, phone: item.phone }));
+    $('validationSummary').textContent = `Validation complete: ${result.validCount} WhatsApp-enabled numbers retained; ${result.invalidCount} invalid/not-on-WhatsApp numbers removed.`;
+    renderContacts();
+    logConsole(`Validation complete: ${result.validCount} valid; ${result.invalidCount} removed.`, 'success');
+    invalid.forEach(item => logConsole(`REMOVED ${item.phone}: ${item.reason || 'Not available on WhatsApp'}`, 'error'));
+    updateStartButton();
+  } catch (error) {
+    $('validationSummary').textContent = `Validation error: ${error.message}`;
+    logConsole(`Validation failed: ${error.message}`, 'error');
+  } finally {
+    validating = false;
+    updateStartButton();
+  }
+}
 
-    async function checkConnection() {
-      const dot = document.getElementById('headerConnectionDot');
-      const text = document.getElementById('headerConnectionText');
-      const badge = document.getElementById('bannerStatusBadge');
-      const modalStatus = document.getElementById('modalStatusText');
+function handleAttachmentChange(event) {
+  const file = event.target.files && event.target.files[0];
+  selectedAttachment = null;
+  if (!file) {
+    $('attachmentStatus').textContent = 'No attachment selected.';
+    updateStartButton();
+    return;
+  }
+  const maxBytes = 8 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    alert('Please select a file up to 8 MB. Larger files may exceed hosting request limits.');
+    event.target.value = '';
+    $('attachmentStatus').textContent = 'No attachment selected.';
+    updateStartButton();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || '');
+    const comma = dataUrl.indexOf(',');
+    selectedAttachment = {
+      fileBase64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl,
+      fileMime: file.type || 'application/octet-stream',
+      fileName: file.name,
+      size: file.size
+    };
+    $('attachmentStatus').textContent = `${file.name} selected (${(file.size / 1024 / 1024).toFixed(2)} MB). It will be attached to each message.`;
+    updateStartButton();
+  };
+  reader.onerror = () => {
+    selectedAttachment = null;
+    $('attachmentStatus').textContent = 'Could not read the selected file.';
+    updateStartButton();
+  };
+  reader.readAsDataURL(file);
+}
 
+function removeAttachment() {
+  $('attachmentInput').value = '';
+  selectedAttachment = null;
+  $('attachmentStatus').textContent = 'No attachment selected.';
+  updateStartButton();
+}
+
+function updateStartButton() {
+  $('startBtn').disabled = dispatching || contacts.length === 0 || !$('consentCheck').checked || (!$('messageInput').value.trim() && !selectedAttachment);
+  $('stopBtn').disabled = !dispatching;
+  $('validateBtn').disabled = dispatching || validating || contacts.length === 0;
+}
+$('consentCheck').addEventListener('change', updateStartButton);
+$('messageInput').addEventListener('input', updateStartButton);
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+async function startDispatchQueue() {
+  if (dispatching || !contacts.length) return;
+  if (!$('consentCheck').checked) { alert('Please confirm that the contacts agreed to receive messages.'); return; }
+  const delaySeconds = Math.max(5, Math.min(30, Number($('delaySeconds').value) || 5));
+  if (!confirm(`Send to ${contacts.length} validated contacts with a ${delaySeconds}-second pause${selectedAttachment ? ` and attachment ${selectedAttachment.fileName}` : ''}?`)) return;
+  const statusResponse = await fetch('/api/status', { cache: 'no-store' });
+  const status = await statusResponse.json();
+  if (!status.ready) { alert('WhatsApp is not connected yet. Link the phone first.'); openSession(); return; }
+
+  dispatching = true; stopRequested = false; processed = 0; updateStartButton(); updateProgress();
+  const snapshot = contacts.slice();
+  const template = $('messageInput').value;
+  logConsole(`Dispatch started for ${snapshot.length} contacts.`);
+  try {
+    for (let i = 0; i < snapshot.length; i++) {
+      if (stopRequested) { logConsole('Queue stopped by user.'); break; }
+      const contact = snapshot[i];
+      const message = template.replace(/\{name\}/gi, contact.name || 'there');
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-
-        if (data.ready) {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
-          text.textContent = `Connected (${data.user || 'Active'})`;
-          badge.textContent = 'Connected ?';
-          badge.className = 'text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-bold';
-          modalStatus.textContent = `Connected as +${data.user || 'Active'}`;
-          modalStatus.className = 'font-bold text-emerald-400 text-sm';
-          document.getElementById('qrCodeContainer').innerHTML = '<span class="text-emerald-600 font-bold text-xs">Device Linked Successfully!</span>';
-        } else if (data.qr) {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
-          text.textContent = 'Scan QR Required';
-          badge.textContent = 'Scan QR ??';
-          badge.className = 'text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold';
-          modalStatus.textContent = 'Scan QR code in modal';
-          modalStatus.className = 'font-bold text-amber-400 text-sm';
-
-          if (data.qr !== lastQrString) {
-            lastQrString = data.qr;
-            renderImageQR(data.qr);
-          }
-        } else {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
-          text.textContent = 'Starting up...';
-          badge.textContent = 'Starting ?';
-          badge.className = 'text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold';
-          modalStatus.textContent = 'Cloud browser booting up...';
-        }
-      } catch (err) {
-        dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
-        text.textContent = 'Offline';
-        badge.textContent = 'Offline ?';
-      }
-    }
-
-    function renderImageQR(qrText) {
-      const container = document.getElementById('qrCodeContainer');
-      container.innerHTML = '';
-      try {
-        new QRCode(container, {
-          text: qrText,
-          width: 170,
-          height: 170,
-          colorDark: "#000000",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.H
+        const response = await fetch('/api/send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: contact.phone, message, ...(selectedAttachment ? { fileBase64: selectedAttachment.fileBase64, fileMime: selectedAttachment.fileMime, fileName: selectedAttachment.fileName } : {}) })
         });
-      } catch (e) {
-        container.innerHTML = `<span class="text-xs text-rose-500">QR render failed</span>`;
-      }
+        const result = await response.json();
+        if (response.ok && result.success) logConsole(`[${i + 1}/${snapshot.length}] SENT to ${contact.name} (${contact.phone})`, 'success');
+        else logConsole(`[${i + 1}/${snapshot.length}] FAILED for ${contact.phone}: ${result.error || 'Unknown error'}`, 'error');
+      } catch (error) { logConsole(`[${i + 1}/${snapshot.length}] REQUEST FAILED for ${contact.phone}: ${error.message}`, 'error'); }
+      processed = i + 1; updateProgress();
+      if (i < snapshot.length - 1 && !stopRequested) await sleep(delaySeconds * 1000);
     }
+  } finally {
+    dispatching = false; updateStartButton();
+    logConsole(`Dispatch finished. Processed ${processed} of ${snapshot.length} contacts.`);
+  }
+}
+function stopDispatchQueue() { stopRequested = true; $('stopBtn').disabled = true; logConsole('Stop requested; current send will finish before stopping.'); }
+function updateProgress() {
+  const total = contacts.length;
+  $('progressBar').style.width = `${total ? Math.min(100, (processed / total) * 100) : 0}%`;
+  $('progressText').textContent = `${processed} of ${total} processed`;
+}
 
-    async function requestPairingCode() {
-      const phoneInput = document.getElementById('pairingPhoneInput').value.trim();
-      const outputBox = document.getElementById('pairingCodeOutput');
-      if (!phoneInput || phoneInput.length < 10) {
-        alert('Enter a valid phone number with country code.');
-        return;
-      }
-      outputBox.classList.remove('hidden');
-      outputBox.textContent = 'Requesting code from WhatsApp...';
-
-      try {
-        const res = await fetch('/api/request-pairing-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumber: phoneInput })
-        });
-        const data = await res.json();
-        if (data.success) {
-          outputBox.textContent = `Pairing Code: ${data.code}`;
-        } else {
-          outputBox.textContent = `Error: ${data.error}`;
-        }
-      } catch (err) {
-        outputBox.textContent = 'Request failed.';
-      }
-    }
-
-    function toggleModal(id, show) { document.getElementById(id).classList.toggle('hidden', !show); }
-    function logConsole(msg) {
-      const box = document.getElementById('logConsole');
-      box.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-      box.scrollTop = box.scrollHeight;
-    }
-    function handleExcelUpload(e) { /* placeholder */ }
-    function startDispatchQueue() { alert('Upload contacts first.'); }
-  </script>
+async function requestPairingCode() {
+  const phoneNumber = $('pairingPhoneInput').value.trim();
+  const output = $('pairingCodeOutput');
+  if (normalizePhone(phoneNumber).length < 10) { alert('Enter a valid phone number with country code.'); return; }
+  $('pairingBtn').disabled = true; output.classList.remove('hidden'); output.textContent = 'Requesting code…';
+  try {
+    const response = await fetch('/api/request-pairing-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phoneNumber }) });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Could not request pairing code.');
+    output.textContent = `Pairing code: ${result.code}`;
+  } catch (error) { output.textContent = `Error: ${error.message}`; }
+  finally { $('pairingBtn').disabled = false; }
+}
+</script>
 </body>
 </html>
