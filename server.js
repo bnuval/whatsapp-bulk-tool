@@ -26,8 +26,6 @@ let shuttingDown = false;
 
 fs.mkdirSync(AUTH_DIR, { recursive: true });
 
-// Optional HTTP Basic Authentication. Set BOTH variables in your hosting dashboard
-// before exposing this app publicly. Browser prompts for credentials once per session.
 app.use((req, res, next) => {
   if (!DASHBOARD_USER || !DASHBOARD_PASSWORD) return next();
   const header = req.headers.authorization || '';
@@ -58,8 +56,34 @@ app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html', ma
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, uptimeSeconds: Math.round(process.uptime()) }));
 
-app.get('/api/status', (_req, res) => {
+app.get('/api/status', async (_req, res) => {
   res.set('Cache-Control', 'no-store');
+
+  if (client && !ready) {
+    try {
+      if (client.info && client.info.wid) {
+        ready = true;
+        qr = null;
+        userNumber = client.info.wid.user;
+      } else if (client.pupPage && !client.pupPage.isClosed()) {
+        const isLoggedIn = await client.pupPage.evaluate(() => {
+          return Boolean(
+            document.querySelector('div[data-testid="chat-list"]') || 
+            document.querySelector('div[id="side"]')
+          );
+        }).catch(() => false);
+
+        if (isLoggedIn) {
+          ready = true;
+          qr = null;
+          if (client.info && client.info.wid) {
+            userNumber = client.info.wid.user;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   res.json({
     ready,
     qr: ready ? null : qr,
@@ -164,7 +188,7 @@ app.post('/api/request-pairing-code', async (req, res) => {
   }
   const phoneNumber = String(req.body?.phoneNumber || '').replace(/\D/g, '');
   if (phoneNumber.length < 10 || phoneNumber.length > 15) {
-    return res.status(400).json({ success: false, error: 'Enter the phone number with country code, digits only (10â€“15 digits).' });
+    return res.status(400).json({ success: false, error: 'Enter the phone number with country code, digits only (10–15 digits).' });
   }
   try {
     const code = await client.requestPairingCode(phoneNumber);
@@ -177,8 +201,6 @@ app.post('/api/request-pairing-code', async (req, res) => {
   }
 });
 
-// Validate a batch of phone numbers against WhatsApp. The client filters out
-// numbers that WhatsApp does not recognize. Keep batches limited to avoid overload.
 app.post('/api/validate-numbers', async (req, res) => {
   if (!ready || !client) {
     return res.status(409).json({ success: false, error: 'WhatsApp is not connected.' });
@@ -205,9 +227,6 @@ app.post('/api/validate-numbers', async (req, res) => {
       results.push({ phone, name, valid: Boolean(details), chatId: details?._serialized || null,
         reason: details ? null : 'Not registered on WhatsApp' });
     } catch (error) {
-      // A lookup exception is not proof that the number is invalid. WhatsApp Web
-      // can throw when its internal comms layer is not ready; stop the batch so
-      // the UI does not remove every contact because of a temporary outage.
       const detail = String(error?.message || 'Unknown WhatsApp lookup error');
       console.error(`Number validation stopped at ${phone}:`, detail);
       ready = false;
@@ -220,16 +239,12 @@ app.post('/api/validate-numbers', async (req, res) => {
         checkedBeforeFailure: results.length
       });
     }
-    // A small pause between lookups avoids hammering the WhatsApp Web client.
     await new Promise(resolve => setTimeout(resolve, 750));
   }
 
   const validCount = results.filter(item => item.valid).length;
   const invalidCount = results.length - validCount;
 
-  // Safety guard: if every lookup says "not registered", don't let a possibly
-  // broken WhatsApp Web lookup wipe the user's entire contact list. The UI only
-  // removes contacts when the server returns success:true.
   if (results.length > 0 && validCount === 0) {
     const detail = 'WhatsApp returned no registered numbers for this entire batch. This may be a WhatsApp Web lookup/connection problem, so the contacts were not removed.';
     lastError = detail;
@@ -261,12 +276,10 @@ app.post('/api/send', async (req, res) => {
   const fileBase64 = req.body?.fileBase64;
   const fileMime = req.body?.fileMime;
   const fileName = req.body?.fileName;
-  if (phone.length < 10 || phone.length > 15) return res.status(400).json({ success: false, error: 'Phone number must include country code and contain 10â€“15 digits.' });
+  if (phone.length < 10 || phone.length > 15) return res.status(400).json({ success: false, error: 'Phone number must include country code and contain 10–15 digits.' });
   if (!message.trim() && !(fileBase64 && fileMime)) return res.status(400).json({ success: false, error: 'Message text or an attachment is required.' });
 
   try {
-    // Workaround for the failing preflight lookup: attempt the send directly.
-    // This does not pre-verify WhatsApp registration; send may still fail.
     const chatId = `${phone}@c.us`;
     if (fileBase64 && fileMime) {
       const pureBase64 = String(fileBase64).replace(/^data:[^;]+;base64,/, '');
