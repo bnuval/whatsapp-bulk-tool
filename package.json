@@ -6,7 +6,6 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "postinstall": "node scripts/patch-wwebjs-qr.js",
     "start": "node server.js",
     "check": "node --check server.js"
   },
